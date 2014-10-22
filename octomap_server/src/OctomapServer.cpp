@@ -48,6 +48,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_res(0.05),
   m_treeDepth(0),
   m_maxTreeDepth(0),
+  m_occThres(0.5),
   m_probHit(0.7), m_probMiss(0.4),
   m_thresMin(0.12), m_thresMax(0.97),
   m_pointcloudMinZ(-std::numeric_limits<double>::max()),
@@ -85,6 +86,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
 
   private_nh.param("resolution", m_res, m_res);
+  private_nh.param("occupancy_threshold", m_occThres, m_occThres);
   private_nh.param("sensor_model/hit", m_probHit, m_probHit);
   private_nh.param("sensor_model/miss", m_probMiss, m_probMiss);
   private_nh.param("sensor_model/min", m_thresMin, m_thresMin);
@@ -103,6 +105,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
   // initialize octomap object & params
   m_octree = new OcTree(m_res);
+  m_octree->setOccupancyThres(m_occThres);
   m_octree->setProbHit(m_probHit);
   m_octree->setProbMiss(m_probMiss);
   m_octree->setClampingThresMin(m_thresMin);

@@ -214,6 +214,7 @@ protected:
   double m_res;
   unsigned m_treeDepth;
   unsigned m_maxTreeDepth;
+  double m_occThres;
   double m_probHit;
   double m_probMiss;
   double m_thresMin;
