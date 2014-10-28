@@ -40,6 +40,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_tfPointCloudSub(NULL),
   m_octree(NULL),
   m_maxRange(-1.0),
+  m_stereoModel(false),
+  m_stereoErrorCoeff(10.0),
   m_worldFrameId("/map"), m_baseFrameId("base_footprint"),
   m_useHeightMap(true),
   m_colorFactor(0.8),
@@ -84,6 +86,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("ground_filter/plane_distance", m_groundFilterPlaneDistance, m_groundFilterPlaneDistance);
 
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
+  private_nh.param("sensor_model/stereo_model", m_stereoModel, m_stereoModel);
+  private_nh.param("sensor_model/stereo_error_coeff", m_stereoErrorCoeff, m_stereoErrorCoeff);
 
   private_nh.param("resolution", m_res, m_res);
   private_nh.param("occupancy_threshold", m_occThres, m_occThres);
@@ -102,7 +106,6 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   }
 
 
-
   // initialize octomap object & params
   m_octree = new OcTree(m_res);
   m_octree->setOccupancyThres(m_occThres);
@@ -113,6 +116,13 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_treeDepth = m_octree->getTreeDepth();
   m_maxTreeDepth = m_treeDepth;
   m_gridmap.info.resolution = m_res;
+  if (m_stereoModel && m_maxRange > 0.0)
+  {
+    m_octree->setStereoSensorModel(m_stereoModel);
+    m_octree->setStereoErrorCoeff(m_stereoErrorCoeff);
+    ROS_INFO("Stereo Sensor Model: %s", m_octree->getStereoSensorModel() ? "true" : "false");
+    ROS_INFO("Stereo Error Coefficient: %f", m_octree->getStereoErrorCoeff());
+  }
 
   double r, g, b, a;
   private_nh.param("color/r", r, 0.0);
