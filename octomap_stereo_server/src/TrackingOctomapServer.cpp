@@ -30,7 +30,7 @@
 #include <octomap_server/TrackingOctomapServer.h>
 #include <string>
 
-using namespace octomap;
+using namespace octomap_stereo;
 
 namespace octomap_server {
 

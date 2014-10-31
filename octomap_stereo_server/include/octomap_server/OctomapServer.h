@@ -63,9 +63,8 @@
 #include <octomap_msgs/conversions.h>
 
 #include <octomap_ros/conversions.h>
-#include <octomap/octomap.h>
-#include <octomap/OcTreeKey.h>
-
+#include <octomap_stereo/octomap.h>
+#include <octomap_stereo/OcTreeKey.h>
 
 namespace octomap_server {
 class OctomapServer{
@@ -75,7 +74,7 @@ public:
   typedef octomap_msgs::GetOctomap OctomapSrv;
   typedef octomap_msgs::BoundingBoxQuery BBXSrv;
 
-  typedef octomap::OcTree OcTreeT;
+  typedef octomap_stereo::OcTree OcTreeT;
 
   OctomapServer(ros::NodeHandle private_nh_ = ros::NodeHandle("~"));
   virtual ~OctomapServer();
@@ -88,21 +87,21 @@ public:
   virtual bool openFile(const std::string& filename);
 
 protected:
-  inline static void updateMinKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& min){
+  inline static void updateMinKey(const octomap_stereo::OcTreeKey& in, octomap_stereo::OcTreeKey& min){
     for (unsigned i=0; i<3; ++i)
       min[i] = std::min(in[i], min[i]);
   };
   
-  inline static void updateMaxKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& max){
+  inline static void updateMaxKey(const octomap_stereo::OcTreeKey& in, octomap_stereo::OcTreeKey& max){
     for (unsigned i=0; i<3; ++i)
       max[i] = std::max(in[i], max[i]);
   };
  
   /// Test if key is within update area of map (2D, ignores height)
-  inline bool isInUpdateBBX(const octomap::OcTree::iterator& it) const{
+  inline bool isInUpdateBBX(const octomap_stereo::OcTree::iterator& it) const{
     // 2^(tree_depth-depth) voxels wide:
     unsigned voxelWidth = (1 << (m_maxTreeDepth - it.getDepth()));
-    octomap::OcTreeKey key = it.getIndexKey(); // lower corner of voxel
+    octomap_stereo::OcTreeKey key = it.getIndexKey(); // lower corner of voxel
     return (key[0]+voxelWidth >= m_updateBBXMin[0]
          && key[1]+voxelWidth >= m_updateBBXMin[1]
          && key[0] <= m_updateBBXMax[0]
@@ -132,7 +131,7 @@ protected:
   * @param key
   * @return
   */
-  bool isSpeckleNode(const octomap::OcTreeKey& key) const;
+  bool isSpeckleNode(const octomap_stereo::OcTreeKey& key) const;
 
   /// hook that is called before traversing all nodes
   virtual void handlePreNodeTraversal(const ros::Time& rostime);
@@ -165,7 +164,7 @@ protected:
     return m_gridmap.info.width*j + i;
   }
 
-  inline unsigned mapIdx(const octomap::OcTreeKey& key) const{
+  inline unsigned mapIdx(const octomap_stereo::OcTreeKey& key) const{
     return mapIdx((key[0] - m_paddedMinKey[0])/m_multires2DScale,
         (key[1] - m_paddedMinKey[1])/m_multires2DScale);
 
@@ -195,10 +194,10 @@ protected:
   tf::TransformListener m_tfListener;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
-  octomap::OcTree* m_octree;
-  octomap::KeyRay m_keyRay;  // temp storage for ray casting
-  octomap::OcTreeKey m_updateBBXMin;
-  octomap::OcTreeKey m_updateBBXMax;
+  octomap_stereo::OcTree* m_octree;
+  octomap_stereo::KeyRay m_keyRay;  // temp storage for ray casting
+  octomap_stereo::OcTreeKey m_updateBBXMin;
+  octomap_stereo::OcTreeKey m_updateBBXMax;
 
   double m_maxRange;
   bool m_stereoModel;
@@ -242,7 +241,7 @@ protected:
   nav_msgs::OccupancyGrid m_gridmap;
   bool m_publish2DMap;
   bool m_mapOriginChanged;
-  octomap::OcTreeKey m_paddedMinKey;
+  octomap_stereo::OcTreeKey m_paddedMinKey;
   unsigned m_multires2DScale;
   bool m_projectCompleteMap;
 };

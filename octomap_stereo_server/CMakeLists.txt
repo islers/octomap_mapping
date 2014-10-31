@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(octomap_server)
+project(octomap_stereo_server)
 
 set(PACKAGE_DEPENDENCIES
   roscpp
@@ -21,14 +21,17 @@ find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
 
 find_package(PCL REQUIRED QUIET COMPONENTS common sample_consensus io segmentation filters)
 
-find_package(octomap REQUIRED)
+find_package(octomap_stereo REQUIRED)
 add_definitions(-DOCTOMAP_NODEBUGOUT)
+
+MESSAGE (STATUS "OCTOMAP_STEREO_INCLUDE_DIRS: ${OCTOMAP_STEREO_INCLUDE_DIRS}")
+MESSAGE (STATUS "OCTOMAP_STEREO_LIBRARIES: ${OCTOMAP_STEREO_LIBRARIES}")
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
-  ${OCTOMAP_INCLUDE_DIRS}
+  ${OCTOMAP_STEREO_INCLUDE_DIRS}
 )
 
 
@@ -38,11 +41,11 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS ${PACKAGE_DEPENDENCIES}
-  DEPENDS octomap PCL
+  DEPENDS octomap_stereo PCL
 )
 
 set(LINK_LIBS
-  ${OCTOMAP_LIBRARIES}
+  ${OCTOMAP_STEREO_LIBRARIES}
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )

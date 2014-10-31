@@ -1,5 +1,5 @@
 <package>
-  <name>octomap_mapping</name>
+  <name>octomap_stereo_mapping</name>
   <version>0.5.3</version>
   <description>
     Mapping tools to be used with the <a href="http://octomap.github.io/">OctoMap library</a>, implementing a 3D occupancy grid mapping.
@@ -13,7 +13,7 @@
   <url type="repository">https://github.com/OctoMap/octomap_mapping</url>
 
   <buildtool_depend>catkin</buildtool_depend>
-  <run_depend>octomap_server</run_depend>
+  <run_depend>octomap_stereo_server</run_depend>
   
   <export>
     <metapackage/>

@@ -29,7 +29,7 @@
 
 #include <octomap_server/OctomapServer.h>
 
-using namespace octomap;
+using namespace octomap_stereo;
 using octomap_msgs::Octomap;
 
 namespace octomap_server{
@@ -326,7 +326,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 }
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
-  point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
+  point3d sensorOrigin = octomap::pointTfToOctomap(sensorOriginTf);
 
   if (!m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMin)
     || !m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMax))
@@ -351,7 +351,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
       free_cells.insert(m_keyRay.begin(), m_keyRay.end());
     }
 
-    octomap::OcTreeKey endKey;
+    octomap_stereo::OcTreeKey endKey;
     if (m_octree->coordToKeyChecked(point, endKey)){
       updateMinKey(endKey, m_updateBBXMin);
       updateMaxKey(endKey, m_updateBBXMax);
@@ -383,7 +383,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
       if (m_octree->computeRayKeys(sensorOrigin, new_end, m_keyRay)){
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
 
-        octomap::OcTreeKey endKey;
+        octomap_stereo::OcTreeKey endKey;
         if (m_octree->coordToKeyChecked(new_end, endKey)){
           updateMinKey(endKey, m_updateBBXMin);
           updateMaxKey(endKey, m_updateBBXMax);
@@ -397,21 +397,35 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
   }
 
   // mark free cells only if not seen occupied in this cloud
-  for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
-    if (occupied_cells.find(*it) == occupied_cells.end()){
-      m_octree->updateNode(*it, false);
+  if(m_octree->getStereoSensorModel()) {
+    for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
+      if (occupied_cells.find(*it) == occupied_cells.end())
+          m_octree->updateNodeStereo(*it, false, m_stereoErrorCoeff, sensorOrigin);
+    }
+  }
+  else {
+    for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
+      if (occupied_cells.find(*it) == occupied_cells.end())
+        m_octree->updateNode(*it, false);
     }
   }
 
   // now mark all occupied cells:
-  for (KeySet::iterator it = occupied_cells.begin(), end=free_cells.end(); it!= end; it++) {
-    m_octree->updateNode(*it, true);
+  if(m_octree->getStereoSensorModel()) {
+    for (KeySet::iterator it = occupied_cells.begin(), end=free_cells.end(); it!= end; it++) {
+      m_octree->updateNodeStereo(*it, true, m_stereoErrorCoeff, sensorOrigin);
+    }
+  }
+  else { 
+    for (KeySet::iterator it = occupied_cells.begin(), end=free_cells.end(); it!= end; it++) {
+      m_octree->updateNode(*it, true);
+    }
   }
 
   // TODO: eval lazy+updateInner vs. proper insertion
   // non-lazy by default (updateInnerOccupancy() too slow for large maps)
   //m_octree->updateInnerOccupancy();
-  octomap::point3d minPt, maxPt;
+  octomap_stereo::point3d minPt, maxPt;
   ROS_DEBUG_STREAM("Bounding box keys (before): " << m_updateBBXMin[0] << " " <<m_updateBBXMin[1] << " " << m_updateBBXMin[2] << " / " <<m_updateBBXMax[0] << " "<<m_updateBBXMax[1] << " "<< m_updateBBXMax[2]);
 
   // TODO: snap max / min keys to larger voxels by m_maxTreeDepth
@@ -665,13 +679,13 @@ bool OctomapServer::octomapFullSrv(OctomapSrv::Request  &req,
 }
 
 bool OctomapServer::clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp){
-  point3d min = pointMsgToOctomap(req.min);
-  point3d max = pointMsgToOctomap(req.max);
+  point3d min = octomap::pointMsgToOctomap(req.min);
+  point3d max = octomap::pointMsgToOctomap(req.max);
 
   for(OcTree::leaf_bbx_iterator it = m_octree->begin_leafs_bbx(min,max),
       end=m_octree->end_leafs_bbx(); it!= end; ++it){
 
-    it->setLogOdds(octomap::logodds(m_thresMin));
+    it->setLogOdds(octomap_stereo::logodds(m_thresMin));
     //			m_octree->updateNode(it.getKey(), -6.0f);
   }
   // TODO: eval which is faster (setLogOdds+updateInner or updateNode)
@@ -877,10 +891,10 @@ void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
     m_octree->getMetricMin(minX, minY, minZ);
     m_octree->getMetricMax(maxX, maxY, maxZ);
 
-    octomap::point3d minPt(minX, minY, minZ);
-    octomap::point3d maxPt(maxX, maxY, maxZ);
-    octomap::OcTreeKey minKey = m_octree->coordToKey(minPt, m_maxTreeDepth);
-    octomap::OcTreeKey maxKey = m_octree->coordToKey(maxPt, m_maxTreeDepth);
+    octomap_stereo::point3d minPt(minX, minY, minZ);
+    octomap_stereo::point3d maxPt(maxX, maxY, maxZ);
+    octomap_stereo::OcTreeKey minKey = m_octree->coordToKey(minPt, m_maxTreeDepth);
+    octomap_stereo::OcTreeKey maxKey = m_octree->coordToKey(maxPt, m_maxTreeDepth);
     
     ROS_DEBUG("MinKey: %d %d %d / MaxKey: %d %d %d", minKey[0], minKey[1], minKey[2], maxKey[0], maxKey[1], maxKey[2]);
 
@@ -891,8 +905,8 @@ void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
     maxX = std::max(maxX, halfPaddedX);
     minY = std::min(minY, -halfPaddedY);
     maxY = std::max(maxY, halfPaddedY);
-    minPt = octomap::point3d(minX, minY, minZ);
-    maxPt = octomap::point3d(maxX, maxY, maxZ);
+    minPt = octomap_stereo::point3d(minX, minY, minZ);
+    maxPt = octomap_stereo::point3d(maxX, maxY, maxZ);
 
     OcTreeKey paddedMaxKey;
     if (!m_octree->coordToKeyChecked(minPt, m_maxTreeDepth, m_paddedMinKey)){
@@ -916,7 +930,7 @@ void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
     assert(mapOriginX >= 0 && mapOriginY >= 0);
 
     // might not exactly be min / max of octree:
-    octomap::point3d origin = m_octree->keyToCoord(m_paddedMinKey, m_treeDepth);
+    octomap_stereo::point3d origin = m_octree->keyToCoord(m_paddedMinKey, m_treeDepth);
     double gridRes = m_octree->getNodeSize(m_maxTreeDepth);
     m_projectCompleteMap = (!m_incrementalUpdate || (std::abs(gridRes-m_gridmap.info.resolution) > 1e-6));
     m_gridmap.info.resolution = gridRes;
@@ -1023,7 +1037,7 @@ void OctomapServer::update2DMap(const OcTreeT::iterator& it, bool occupied){
 
   } else{
     int intSize = 1 << (m_maxTreeDepth - it.getDepth());
-    octomap::OcTreeKey minKey=it.getIndexKey();
+    octomap_stereo::OcTreeKey minKey=it.getIndexKey();
     for(int dx=0; dx < intSize; dx++){
       int i = (minKey[0]+dx - m_paddedMinKey[0])/m_multires2DScale;
       for(int dy=0; dy < intSize; dy++){

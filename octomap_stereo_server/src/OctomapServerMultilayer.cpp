@@ -29,7 +29,7 @@
 
 #include <octomap_server/OctomapServerMultilayer.h>
 
-using namespace octomap;
+using namespace octomap_stereo;
 
 namespace octomap_server{
 
@@ -236,7 +236,7 @@ void OctomapServerMultilayer::update2DMap(const OcTreeT::iterator& it, bool occu
 
   } else {
     int intSize = 1 << (m_treeDepth - it.getDepth());
-    octomap::OcTreeKey minKey=it.getIndexKey();
+    octomap_stereo::OcTreeKey minKey=it.getIndexKey();
     for(int dx=0; dx < intSize; dx++){
       int i = (minKey[0]+dx - m_paddedMinKey[0])/m_multires2DScale;
       for(int dy=0; dy < intSize; dy++){
