@@ -76,6 +76,7 @@ public:
   typedef octomap_msgs::BoundingBoxQuery BBXSrv;
 
   typedef octomap::OcTree OcTreeT;
+  typedef octomap::OcTreeStereo OcTreeStereoT;
 
   OctomapServer(ros::NodeHandle private_nh_ = ros::NodeHandle("~"));
   virtual ~OctomapServer();
@@ -122,7 +123,8 @@ protected:
   * @param ground scan endpoints on the ground plane (only clear space)
   * @param nonground all other endpoints (clear up to occupied endpoint)
   */
-  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  virtual void insertScan(const tf::Point& sensorOrigin, const octomath::Vector3& sensorOrientation, 
+                          const PCLPointCloud& ground, const PCLPointCloud& nonground);
 
   /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
   void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
@@ -195,7 +197,8 @@ protected:
   tf::TransformListener m_tfListener;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
-  octomap::OcTree* m_octree;
+  //octomap::OcTree* m_octree;
+  octomap::OccupancyOcTreeBase<octomap::OcTreeNode>* m_octree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;

@@ -107,7 +107,10 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
 
   // initialize octomap object & params
-  m_octree = new OcTree(m_res);
+  if (m_stereoModel)
+    m_octree = new OcTreeStereo(m_res, m_stereoErrorCoeff, m_maxRange);
+  else
+    m_octree = new OcTree(m_res);
   m_octree->setOccupancyThres(m_occThres);
   m_octree->setProbHit(m_probHit);
   m_octree->setProbMiss(m_probMiss);
@@ -116,6 +119,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_treeDepth = m_octree->getTreeDepth();
   m_maxTreeDepth = m_treeDepth;
   m_gridmap.info.resolution = m_res;
+  /*
   if (m_stereoModel && m_maxRange > 0.0)
   {
     m_octree->setStereoSensorModel(m_stereoModel);
@@ -123,6 +127,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
     ROS_INFO("Stereo Sensor Model: %s", m_octree->getStereoSensorModel() ? "true" : "false");
     ROS_INFO("Stereo Error Coefficient: %f", m_octree->getStereoErrorCoeff());
   }
+  */
 
   double r, g, b, a;
   private_nh.param("color/r", r, 0.0);
@@ -266,6 +271,12 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   Eigen::Matrix4f sensorToWorld;
   pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
 
+  // Get pose of sensor as vector for orientation of +x for sensor frame
+  // First get rotation from world to sensor frame
+  Eigen::Matrix3f worldToSensorRot = (sensorToWorld.inverse()).block<3,3>(0,0);
+  Eigen::Vector3f sensorOrientation = worldToSensorRot * Eigen::Vector3f(1.0,0.0,0.0);
+  octomath::Vector3 orientation(sensorOrientation(0), sensorOrientation(1), sensorOrientation(2)); 
+
 
   // set up filter for height range, also removes NANs:
   pcl::PassThrough<pcl::PointXYZ> pass;
@@ -317,7 +328,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   }
 
 
-  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+  insertScan(sensorToWorldTf.getOrigin(), orientation, pc_ground, pc_nonground);
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
@@ -325,7 +336,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   publishAll(cloud->header.stamp);
 }
 
-void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
+void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::Vector3& sensorOrientation,
+                               const PCLPointCloud& ground, const PCLPointCloud& nonground){
   point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
 
   if (!m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMin)
@@ -333,8 +345,6 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
   {
     ROS_ERROR_STREAM("Could not generate Key for origin "<<sensorOrigin);
   }
-
-
 
   // instead of direct scan insertion, compute update to filter ground:
   KeySet free_cells, occupied_cells;
@@ -396,16 +406,31 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
     }
   }
 
-  // mark free cells only if not seen occupied in this cloud
-  for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
-    if (occupied_cells.find(*it) == occupied_cells.end()){
-      m_octree->updateNode(*it, false);
+  if (m_stereoModel)
+  {
+    // insert data into tree  -----------------------
+    for (KeySet::iterator it = free_cells.begin(); it != free_cells.end(); ++it) {
+      float d = fabs(((m_octree->keyToCoord(*it)) - sensorOrigin).dot(sensorOrientation));
+      m_octree->updateNode(*it, false, d);
+    }
+    for (KeySet::iterator it = occupied_cells.begin(); it != occupied_cells.end(); ++it) {
+      float d = fabs(((m_octree->keyToCoord(*it)) - sensorOrigin).dot(sensorOrientation));
+      m_octree->updateNode(*it, true, d);
     }
   }
+  else
+  {
+    // mark free cells only if not seen occupied in this cloud
+    for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
+      if (occupied_cells.find(*it) == occupied_cells.end()){
+        m_octree->updateNode(*it, false);
+      }
+    }
 
-  // now mark all occupied cells:
-  for (KeySet::iterator it = occupied_cells.begin(), end=free_cells.end(); it!= end; it++) {
-    m_octree->updateNode(*it, true);
+    // now mark all occupied cells:
+    for (KeySet::iterator it = occupied_cells.begin(), end=free_cells.end(); it!= end; it++) {
+      m_octree->updateNode(*it, true);
+    }
   }
 
   // TODO: eval lazy+updateInner vs. proper insertion

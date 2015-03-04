@@ -83,8 +83,8 @@ TrackingOctomapServer::TrackingOctomapServer(const std::string& filename) :
 TrackingOctomapServer::~TrackingOctomapServer() {
 }
 
-void TrackingOctomapServer::insertScan(const tf::Point & sensorOrigin, const PCLPointCloud & ground, const PCLPointCloud & nonground) {
-  OctomapServer::insertScan(sensorOrigin, ground, nonground);
+void TrackingOctomapServer::insertScan(const tf::Point & sensorOrigin, const octomath::Vector3& sensorOrientation, const PCLPointCloud & ground, const PCLPointCloud & nonground) {
+  OctomapServer::insertScan(sensorOrigin, sensorOrientation, ground, nonground);
 
   if (track_changes) {
     trackChanges();

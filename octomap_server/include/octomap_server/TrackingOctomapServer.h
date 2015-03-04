@@ -40,7 +40,7 @@ public:
   virtual ~TrackingOctomapServer();
 
   void trackCallback(sensor_msgs::PointCloud2Ptr cloud);
-  void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  void insertScan(const tf::Point& sensorOrigin, const octomath::Vector3& sensorOrientation, const PCLPointCloud& ground, const PCLPointCloud& nonground);
 
 protected:
   void trackChanges();
