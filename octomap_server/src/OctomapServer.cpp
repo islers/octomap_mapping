@@ -108,9 +108,15 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
 
   // initialize octomap object & params
   if (m_stereoModel)
+  {
+    ROS_INFO("OctoMap Server: Using stereo error model.");
     m_octree = new OcTreeStereo(m_res, m_stereoErrorCoeff, m_maxRange);
+  }
   else
+  {
+    ROS_INFO("OctoMap Server: Using standard/constant error model (default).");
     m_octree = new OcTree(m_res);
+  }
   m_octree->setOccupancyThres(m_occThres);
   m_octree->setProbHit(m_probHit);
   m_octree->setProbMiss(m_probMiss);
@@ -252,7 +258,6 @@ bool OctomapServer::openFile(const std::string& filename){
 
 void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
   ros::WallTime startTime = ros::WallTime::now();
-
 
   //
   // ground filtering in base frame

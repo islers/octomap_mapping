@@ -105,9 +105,14 @@ void TrackingOctomapServer::trackChanges() {
     bool occupied = m_octree->isNodeOccupied(node);
 
     pcl::PointXYZI pnt;
+    /*
     pnt.x = iter->first.k[0];
     pnt.y = iter->first.k[1];
     pnt.z = iter->first.k[2];
+    */
+    pnt.x = m_octree->keyToCoord(iter->first.k[0]);
+    pnt.y = m_octree->keyToCoord(iter->first.k[1]);
+    pnt.z = m_octree->keyToCoord(iter->first.k[2]);
 
     if (occupied) {
       pnt.intensity = 1000;
