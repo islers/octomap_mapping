@@ -66,17 +66,20 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
+#include <octomap/ColorOcTree.h>
+#include <octomap/ColorOcTreeStereo.h>
+
 
 namespace octomap_server {
 class OctomapServer{
 
 public:
-  typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
+  typedef pcl::PointCloud<pcl::PointXYZRGB> PCLPointCloud;
   typedef octomap_msgs::GetOctomap OctomapSrv;
   typedef octomap_msgs::BoundingBoxQuery BBXSrv;
 
-  typedef octomap::OcTree OcTreeT;
-  typedef octomap::OcTreeStereo OcTreeStereoT;
+  typedef octomap::ColorOcTree OcTreeT;
+  typedef octomap::ColorOcTreeStereo OcTreeStereoT;
 
   OctomapServer(ros::NodeHandle private_nh_ = ros::NodeHandle("~"));
   virtual ~OctomapServer();
@@ -100,7 +103,7 @@ protected:
   };
  
   /// Test if key is within update area of map (2D, ignores height)
-  inline bool isInUpdateBBX(const octomap::OcTree::iterator& it) const{
+  inline bool isInUpdateBBX(const octomap::ColorOcTree::iterator& it) const{
     // 2^(tree_depth-depth) voxels wide:
     unsigned voxelWidth = (1 << (m_maxTreeDepth - it.getDepth()));
     octomap::OcTreeKey key = it.getIndexKey(); // lower corner of voxel
@@ -197,8 +200,16 @@ protected:
   tf::TransformListener m_tfListener;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
+  
+  bool m_use_color; /// whether colors shall be published or not, default: true
+  // everything outside of this volume is filtered out if m_use_update_volume is true
+  octomap::point3d m_update_volume_min, m_update_volume_max;
+  bool m_use_update_volume_x; // default:false
+  bool m_use_update_volume_y; // default:false
+  bool m_use_update_volume_z; // default:false
+  
   //octomap::OcTree* m_octree;
-  octomap::OccupancyOcTreeBase<octomap::OcTreeNode>* m_octree;
+  octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* m_octree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
