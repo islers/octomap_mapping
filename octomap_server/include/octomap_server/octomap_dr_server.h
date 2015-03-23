@@ -82,8 +82,9 @@ private:
    * @param _min_ray_depth minimal length of the ray
    * @param _max_ray_depth maximal length of the ray (if zero it isn't considered)
    * @param _occupied_passthrough_threshold if endpoints have an occupancy likelihood lower than this, then they're not considered as endpoint and the ray is continued
+   * @param _ray_step_size each _ray_step_size-th voxel on the ray is used for metric calculations (if zero, default is 1)
    */
-  void retrieveInformationForRay( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree, std::vector<boost::shared_ptr<InformationMetric> >& _metrics, octomap::point3d& _origin, octomap::point3d& _direction, double _min_ray_depth, double _max_ray_depth, double _occupied_passthrough_threshold );
+  void retrieveInformationForRay( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree, std::vector<boost::shared_ptr<InformationMetric> >& _metrics, octomap::point3d& _origin, octomap::point3d& _direction, double _min_ray_depth, double _max_ray_depth, double _occupied_passthrough_threshold, unsigned int _ray_step_size=1 );
 };
 
 /// handy structure to bundle function arguments

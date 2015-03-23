@@ -90,13 +90,15 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
 
 bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res )
 {
+  ROS_INFO("informationService called, calculating information for view.");
+  
   // test if camera info has been initialized
   if( !cam_model_.initialized() )
   {
     ROS_ERROR("OctomapDRServer::informationService called but no camera information has been received yet. Cannot serve the request.");
     return false;
   }
-  if( _req.call.ray_resolution_x==0 || _req.call.ray_resolution_y )
+  if( _req.call.ray_resolution_x==0 || _req.call.ray_resolution_y==0 )
   {
     ROS_ERROR("OctomapDRServer::informationService called with ray_resolution_x or ray_resolution_y zero which is not allowed. Cannot serve the request.");
     return false;
@@ -122,6 +124,8 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
   // build ray directions for information retrieval, relative to camera coordinate frame
   double px_x_step = 1.0/_req.call.ray_resolution_x;
   double px_y_step = 1.0/_req.call.ray_resolution_y;
+  _req.call.ray_step_size = (_req.call.ray_step_size==0)?1:_req.call.ray_step_size;
+  
   for( double x=0; x<cam_model_.fullResolution().width; x+=px_x_step )
   {
     for( double y=0; y<cam_model_.fullResolution().height; y+=px_y_step )
@@ -133,6 +137,7 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
       ray_directions.push_back(direction);
     }
   }
+  ROS_INFO_STREAM("A total number of "<<ray_directions.size()<<" rays will be cast per view.");
   
   if( _req.call.poses.size()!=1 ) // for predictions the "artificial raytracing grid" ray directions need to be built as well
   {
@@ -253,6 +258,8 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
   // retrieve information for each ray
   for( unsigned int i=0; i<_info.ray_directions->size(); ++i )
   {
+    if( i%1000==0 )
+      ROS_INFO_STREAM("Retrieving information from ray "<<i<<"/"<<_info.ray_directions->size()<<"...");
     BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, metrics )
     {
       metric->makeReadyForNewRay();
@@ -260,7 +267,7 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     // transform direction from camera coordinates to octomap coordinates, given orientation of the view
     Eigen::Vector3d dir_oct = _info.orientations->back()*(*_info.ray_directions)[i];
     octomap::point3d direction( dir_oct.x(), dir_oct.y(), dir_oct.z() );
-    retrieveInformationForRay( _info.octree, metrics, _info.origins->back(), direction, _info.request->call.min_ray_depth, _info.request->call.max_ray_depth, _info.request->call.occupied_passthrough_threshold );
+    retrieveInformationForRay( _info.octree, metrics, _info.origins->back(), direction, _info.request->call.min_ray_depth, _info.request->call.max_ray_depth, _info.request->call.occupied_passthrough_threshold, _info.request->call.ray_step_size );
   }
   
   _info.response->expected_information.metric_names = _info.request->call.metric_names;
@@ -275,7 +282,7 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
   return;
 }
 
-void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree, std::vector<boost::shared_ptr<InformationMetric> >& _metrics, octomap::point3d& _origin, octomap::point3d& _direction, double _min_ray_depth, double _max_ray_depth, double _occupied_passthrough_threshold )
+void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree, std::vector<boost::shared_ptr<InformationMetric> >& _metrics, octomap::point3d& _origin, octomap::point3d& _direction, double _min_ray_depth, double _max_ray_depth, double _occupied_passthrough_threshold, unsigned int _ray_step_size )
 {
   octomap::point3d end_point; // calculate endpoint (if any)
   
@@ -294,6 +301,7 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
     
     if( end_point==offset_origin ) // try an offset once
     {
+      ROS_INFO("View origin is on occupied voxel, attempt to offset it.");
       offset_origin = offset_origin + _direction*min_ray_depth;
       max_range_for_offset -= min_ray_depth;
       found_endpoint = _octree->castRay( offset_origin, _direction, end_point, true, max_range_for_offset );
@@ -308,6 +316,7 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
       
       if( occ_likelihood<log_odd_passthrough_threshold ) // doesn't satisfy, keep recasting rays until either satisfying end point is found or none
       {
+	ROS_INFO("Found endpoint doesn't fulfill occupancy threshold, raycasting on.");
 	octomap::point3d offset_origin = end_point;
 	octomap::point3d dist_vec = end_point-_origin;
 	double current_length = dist_vec.norm();
@@ -345,11 +354,15 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
   octomap::KeyRay ray;
   _octree->computeRayKeys( _origin, end_point, ray );
   
-  for( octomap::KeyRay::iterator it = ray.begin(); it!=ray.end(); ++it )
+  unsigned int count=0;
+  for( octomap::KeyRay::iterator it = ray.begin() ; it!=ray.end(); ++it, ++count )
   {
-    BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, _metrics )
+    if( count%_ray_step_size==0 )
     {
-      metric->includeRayMeasurement( *it );
+      BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, _metrics )
+      {
+	metric->includeRayMeasurement( *it );
+      }
     }
   }
   
