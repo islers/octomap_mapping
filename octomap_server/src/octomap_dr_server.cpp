@@ -251,6 +251,10 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
   // retrieve information for each ray
   for( unsigned int i=0; i<_info.ray_directions->size(); ++i )
   {
+    BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, metrics )
+    {
+      metric->makeReadyForNewRay();
+    }
     // transform direction from camera coordinates to octomap coordinates, given orientation of the view
     Eigen::Vector3d dir_oct = _info.orientations->back()*(*_info.ray_directions)[i];
     octomap::point3d direction( dir_oct.x(), dir_oct.y(), dir_oct.z() );
@@ -273,7 +277,7 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
 {
   octomap::point3d end_point; // calculate endpoint (if any)
   
-  double max_range = (_max_ray_depth>0)?_max_ray_depth:-1;
+  double max_range = (_max_ray_depth>0)?_max_ray_depth:10.0;
   double log_odd_passthrough_threshold = std::log(_occupied_passthrough_threshold);
   
   double min_ray_depth = (_min_ray_depth==0)?0.005:_min_ray_depth; //default for min ray depth [m]
@@ -330,11 +334,34 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
 	}while( occ_likelihood<log_odd_passthrough_threshold );
       }
     }
-    
-    
   }
   
+  // calculate metrics for all points on ray, calculate points on ray
+  if( !found_endpoint ) // *artificial end point*
+    end_point = _origin + _direction*max_range;
   
+  octomap::KeyRay ray;
+  _octree->computeRayKeys( _origin, end_point, ray );
+  
+  for( octomap::KeyRay::iterator it = ray.begin(); it!=ray.end(); ++it )
+  {
+    BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, _metrics )
+    {
+      metric->includeRayMeasurement( *it );
+    }
+  }
+  
+  // calculate metric for end point of ray if it exists
+  if( found_endpoint )
+  {
+    octomap::OcTreeKey end_key = _octree->coordToKey(end_point);
+    BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, _metrics )
+    {
+      metric->includeEndPointMeasurement( end_key );
+    }
+  }
+  
+  return;
 }
 
 double NrOfUnknownVoxels::getInformation()
