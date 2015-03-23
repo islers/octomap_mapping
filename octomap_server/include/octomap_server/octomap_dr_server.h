@@ -112,6 +112,8 @@ public:
     octree_ = _octree;
   }
   
+  virtual bool isTotalTreeMetric(){ return false; }
+  
   /**
    * returns the name of the method
    */
@@ -256,6 +258,70 @@ public:
 private:
   unsigned int frontier_voxel_count_;
   bool previous_voxel_free_;
+};
+
+/** information metric for rays:
+ * sums up the likelihoods over all end nodes
+ */
+class EndNodeOccupancySum: public OctomapDRServer::InformationMetric
+{
+public:
+  EndNodeOccupancySum():sum_(0){};
+  inline std::string type()
+  {
+    return "EndNodeOccupancySum";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  double sum_;
+};
+
+class TotalTreeMetric: public OctomapDRServer::InformationMetric
+{
+public:
+  virtual void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )=0;
+  bool isTotalTreeMetric(){ return true;}
+};
+
+/** total sum over the occupancy of all nodes in the whole tree that are occupied - doesn't calculate on ray
+ */
+class TotalOccupancyCertainty: public TotalTreeMetric
+{
+public:
+  TotalOccupancyCertainty():sum_(0){};
+  inline std::string type()
+  {
+    return "TotalOccupancyCertainty";
+  }
+  void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree );
+  double getInformation();
+  void makeReadyForNewRay(){};
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+private:
+  double sum_;
+};
+
+/** total number of occupieds in the whole tree
+ */
+class TotalNrOfOccupieds: public TotalTreeMetric
+{
+public:
+  TotalNrOfOccupieds():sum_(0){};
+  inline std::string type()
+  {
+    return "TotalNrOfOccupieds";
+  }
+  void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree );
+  double getInformation();
+  void makeReadyForNewRay(){};
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+private:
+  unsigned int sum_;
 };
 
 }

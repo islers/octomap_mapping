@@ -85,7 +85,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   _private_nh.param("camera_info_topic", camera_info_topic_, camera_info_topic_);
   
   camera_info_subscriber_ = m_nh.subscribe(camera_info_topic_,1,&OctomapDRServer::cameraInfoCallback, this );
-  view_information_server_ = m_nh.advertiseService("/dense_reconstruction/octomap/information", &OctomapDRServer::informationService, this);
+  view_information_server_ = m_nh.advertiseService("/dense_reconstruction/3d_model/information", &OctomapDRServer::informationService, this);
 }
 
 bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res )
@@ -126,9 +126,20 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
   double px_y_step = 1.0/_req.call.ray_resolution_y;
   _req.call.ray_step_size = (_req.call.ray_step_size==0)?1:_req.call.ray_step_size;
   
-  for( double x=0; x<cam_model_.fullResolution().width; x+=px_x_step )
+  unsigned int max_x = (_req.call.max_x==0)?cam_model_.fullResolution().width:_req.call.max_x;
+  unsigned int min_x = _req.call.min_x;
+  unsigned int max_y = (_req.call.max_y==0)?cam_model_.fullResolution().height:_req.call.max_y;
+  unsigned int min_y = _req.call.min_y;
+  
+  if( max_x<=min_x || max_y<=min_y )
   {
-    for( double y=0; y<cam_model_.fullResolution().height; y+=px_y_step )
+    ROS_ERROR("OctomapDRServer::informationService called with invalid max_x/min_x or max_y/min_y combination. Cannot serve the request.");
+    return false;
+  }
+  
+  for( double x=min_x; x<max_x; x+=px_x_step )
+  {
+    for( double y=min_y; y<max_y; y+=px_y_step )
     {
       cv::Point2d pixel(x,y);
       cv::Point3d ray_direction = cam_model_.projectPixelTo3dRay(pixel);
@@ -252,7 +263,29 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new ClassicFrontier() ) );
     }
+    else if( metric=="EndNodeOccupancySum" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new EndNodeOccupancySum() ) );
+    }
+    else if( metric=="TotalOccupancyCertainty" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalOccupancyCertainty() ) );
+    }
+    else if( metric=="TotalNrOfOccupieds" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalNrOfOccupieds() ) );
+    }
     metrics.back()->setOcTreeTarget(_info.octree);
+  }
+  
+  // retrieve total tree informations
+  BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, metrics )
+  {
+    if( metric->isTotalTreeMetric() )
+    {
+      boost::shared_ptr<TotalTreeMetric> cast = boost::dynamic_pointer_cast<TotalTreeMetric>(metric);
+      cast->calculateOnTree(_info.octree);
+    }
   }
   
   // retrieve information for each ray
@@ -553,6 +586,69 @@ void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 void ClassicFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
   // void since end points are occupied by definition
+}
+
+double EndNodeOccupancySum::getInformation()
+{
+  return sum_;
+}
+
+void EndNodeOccupancySum::makeReadyForNewRay()
+{
+  // void
+}
+
+void EndNodeOccupancySum::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  // void
+}
+
+void EndNodeOccupancySum::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  octomap::ColorOcTreeNode* to_measure = octree_->search(_to_measure);
+  if( to_measure==NULL )
+  {
+    // unknown
+  }
+  else
+  {
+    if( !octree_->isNodeOccupied( to_measure ) )
+    {
+      sum_+=to_measure->getOccupancy();
+    }
+  }
+}
+
+void TotalOccupancyCertainty::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
+{
+  for( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>::leaf_iterator it = _octree->begin_leafs(); it!=_octree->end_leafs(); ++it )
+  {
+    if( octree_->isNodeOccupied( *it ) )
+    {
+      sum_ += it->getOccupancy();
+    }
+  }
+}
+
+double TotalOccupancyCertainty::getInformation()
+{
+  return sum_;
+}
+
+void TotalNrOfOccupieds::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
+{
+  for( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>::leaf_iterator it = _octree->begin_leafs(); it!=_octree->end_leafs(); ++it )
+  {
+    if( octree_->isNodeOccupied( *it ) )
+    {
+      ++sum_;
+    }
+  }
+}
+
+double TotalNrOfOccupieds::getInformation()
+{
+  return sum_;
 }
 
 
