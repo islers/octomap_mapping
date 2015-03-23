@@ -59,6 +59,7 @@ public:
 private:
   image_geometry::PinholeCameraModel cam_model_;
   
+  ros::ServiceServer view_information_server_;
   ros::Subscriber camera_info_subscriber_;
   
   std::string camera_info_topic_;

@@ -85,6 +85,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   _private_nh.param("camera_info_topic", camera_info_topic_, camera_info_topic_);
   
   camera_info_subscriber_ = m_nh.subscribe(camera_info_topic_,1,&OctomapDRServer::cameraInfoCallback, this );
+  view_information_server_ = m_nh.advertiseService("/dense_reconstruction/octomap/information", &OctomapDRServer::informationService, this);
 }
 
 bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res )
