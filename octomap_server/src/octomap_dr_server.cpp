@@ -218,35 +218,123 @@ void OctomapDRServer::informationRetrieval( InformationRetrievalStructure& _info
 void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure& _info )
 {
   // build vector with all ray metrics
-  std::vector<boost::shared_ptr<RayInformationMetric> > metrics;
+  std::vector<boost::shared_ptr<InformationMetric> > metrics;
 
   BOOST_FOREACH( std::string metric, _info.request->call.metric_names )
   {
     if( metric=="NrOfUnknownVoxels" )
     {
-      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new NrOfUnknownVoxels() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new NrOfUnknownVoxels() ) );
     }
     if( metric=="AverageUncertainty" )
     {
-      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new AverageUncertainty() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new AverageUncertainty() ) );
     }
     if( metric=="AverageEndPointUncertainty" )
     {
-      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new AverageEndPointUncertainty() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new AverageEndPointUncertainty() ) );
     }
     if( metric=="UnknownObjectSideFrontier" )
     {
-      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new UnknownObjectSideFrontier() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectSideFrontier() ) );
     }
     if( metric=="UnknownObjectVolumeFrontier" )
     {
-      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new UnknownObjectVolumeFrontier() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectVolumeFrontier() ) );
     }
     if( metric=="ClassicFrontier" )
     {
-      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new ClassicFrontier() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new ClassicFrontier() ) );
     }
   }
+  
+  // retrieve information for each ray
+  for( unsigned int i=0; i<_info.ray_directions->size(); ++i )
+  {
+    // transform direction from camera coordinates to octomap coordinates, given orientation of the view
+    Eigen::Vector3d dir_oct = _info.orientations->back()*(*_info.ray_directions)[i];
+    octomap::point3d direction( dir_oct.x(), dir_oct.y(), dir_oct.z() );
+    retrieveInformationForRay( _info.octree, metrics, _info.origins->back(), direction, _info.request->call.min_ray_depth, _info.request->call.max_ray_depth, _info.request->call.occupied_passthrough_threshold );
+  }
+  
+  _info.response->expected_information.metric_names = _info.request->call.metric_names;
+  
+  std::vector<double> information;
+  BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, metrics )
+  {
+    information.push_back( metric->getInformation() );
+  }
+  _info.response->expected_information.values = information;
+  
+  return;
+}
+
+void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree, std::vector<boost::shared_ptr<InformationMetric> >& _metrics, octomap::point3d& _origin, octomap::point3d& _direction, double _min_ray_depth, double _max_ray_depth, double _occupied_passthrough_threshold )
+{
+  octomap::point3d end_point; // calculate endpoint (if any)
+  
+  double max_range = (_max_ray_depth>0)?_max_ray_depth:-1;
+  double log_odd_passthrough_threshold = std::log(_occupied_passthrough_threshold);
+  
+  double min_ray_depth = (_min_ray_depth==0)?0.005:_min_ray_depth; //default for min ray depth [m]
+  
+  bool found_endpoint = _octree->castRay( _origin, _direction, end_point, true, max_range ); // ignore unknown cells
+  
+  if( found_endpoint ) // check that endpoint satisfies constraints and move startpoint once if on occupied voxel
+  {
+    octomap::point3d offset_origin = _origin;
+    double max_range_for_offset = max_range;
+    bool search = true;
+    
+    if( end_point==offset_origin ) // try an offset once
+    {
+      offset_origin = offset_origin + _direction*min_ray_depth;
+      max_range_for_offset -= min_ray_depth;
+      found_endpoint = _octree->castRay( offset_origin, _direction, end_point, true, max_range_for_offset );
+            
+      search = true;
+    }
+    
+    if( found_endpoint )
+    {
+      octomap::ColorOcTreeNode* end_node = _octree->search(end_point);
+      double occ_likelihood = end_node->getLogOdds();
+      
+      if( occ_likelihood<log_odd_passthrough_threshold ) // doesn't satisfy, keep recasting rays until either satisfying end point is found or none
+      {
+	octomap::point3d offset_origin = end_point;
+	octomap::point3d dist_vec = end_point-_origin;
+	double current_length = dist_vec.norm();
+	max_range_for_offset = max_range - current_length;
+	
+	do // look for different end point for as long as none satisfies the threshold
+	{
+	  found_endpoint=false; // no endpoint found that satisfies
+	  
+	  offset_origin = offset_origin + _direction*min_ray_depth;
+	  max_range_for_offset -= min_ray_depth;
+	  
+	  if( max_range_for_offset<=0 ) // no space left for iteration
+	  {
+	    found_endpoint=false;
+	    break;
+	  }
+	  
+	  found_endpoint = _octree->castRay( offset_origin, _direction, end_point, true, max_range_for_offset );
+	  
+	  if( !found_endpoint )
+	    break;
+	  
+	  end_node = _octree->search(end_point);
+	  occ_likelihood = end_node->getLogOdds();
+	}while( occ_likelihood<log_odd_passthrough_threshold );
+      }
+    }
+    
+    
+  }
+  
+  
 }
 
 double NrOfUnknownVoxels::getInformation()

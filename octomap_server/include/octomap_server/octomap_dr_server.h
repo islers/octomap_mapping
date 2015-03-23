@@ -45,7 +45,7 @@ namespace octomap_server {
 class OctomapDRServer:public OctomapServer{
 public:
   struct InformationRetrievalStructure;
-  class RayInformationMetric;
+  class InformationMetric;
   
   OctomapDRServer(ros::NodeHandle private_nh_ = ros::NodeHandle("~"));
   
@@ -72,6 +72,17 @@ private:
    * retrieves the information for the last view in the _info structure
    */
   void retrieveInformationForView( InformationRetrievalStructure& _info );
+  
+  /** retrieves the information for a specific ray
+   * @param _octree OcTree in which the ray will be cast and the information calculated
+   * @param _metrics set of metrics to use for the calculation
+   * @param _origin origin of the ray
+   * @param _direction direction of the ray
+   * @param _min_ray_depth minimal length of the ray
+   * @param _max_ray_depth maximal length of the ray (if zero it isn't considered)
+   * @param _occupied_passthrough_threshold if endpoints have an occupancy likelihood lower than this, then they're not considered as endpoint and the ray is continued
+   */
+  void retrieveInformationForRay( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree, std::vector<boost::shared_ptr<InformationMetric> >& _metrics, octomap::point3d& _origin, octomap::point3d& _direction, double _min_ray_depth, double _max_ray_depth, double _occupied_passthrough_threshold );
 };
 
 /// handy structure to bundle function arguments
@@ -88,7 +99,7 @@ struct OctomapDRServer::InformationRetrievalStructure
 };
 
 /// abstract base class (interface) for information metrics @TODO: factory?
-class OctomapDRServer::RayInformationMetric
+class OctomapDRServer::InformationMetric
 {
 public:
   /**
@@ -105,12 +116,12 @@ public:
   virtual std::string type()=0;
   
   /**
-   * calculates the information for the data added so far
+   * calculates the information for the data added so far (for all rays)
    */
   virtual double getInformation()=0;
   
   /**
-   * clears all data, basically reinitializes the metric
+   * clears all ray specific data, gets ready for a new ray
    */
   virtual void makeReadyForNewRay()=0;
   
@@ -131,7 +142,7 @@ protected:
 /** information metric for rays:
  * counts the number of unknown voxels hit by the ray
  */
-class NrOfUnknownVoxels: public OctomapDRServer::RayInformationMetric
+class NrOfUnknownVoxels: public OctomapDRServer::InformationMetric
 {
   inline std::string type()
   {
@@ -147,7 +158,7 @@ class NrOfUnknownVoxels: public OctomapDRServer::RayInformationMetric
  * calculates the average uncertainty of the measurements (basically how close the occupancy likelihood is to 0.5)
  * max uncertainty: 1, min uncertainty 0
  */
-class AverageUncertainty: public OctomapDRServer::RayInformationMetric
+class AverageUncertainty: public OctomapDRServer::InformationMetric
 {
   inline std::string type()
   {
@@ -162,7 +173,7 @@ class AverageUncertainty: public OctomapDRServer::RayInformationMetric
 /** information metric for rays:
  * calculates the average uncertainty for found end points for the rays (uncertainty defined as for the AverageUncertainty metric)
  */
-class AverageEndPointUncertainty: public OctomapDRServer::RayInformationMetric
+class AverageEndPointUncertainty: public OctomapDRServer::InformationMetric
 {
   inline std::string type()
   {
@@ -177,7 +188,7 @@ class AverageEndPointUncertainty: public OctomapDRServer::RayInformationMetric
 /** information metric for rays:
  * counts how often an unknown voxel is followed by an occupied one (this is thus an alternative version of the common 'frontier' metric)
  */
-class UnknownObjectSideFrontier: public OctomapDRServer::RayInformationMetric
+class UnknownObjectSideFrontier: public OctomapDRServer::InformationMetric
 {
   inline std::string type()
   {
@@ -193,7 +204,7 @@ class UnknownObjectSideFrontier: public OctomapDRServer::RayInformationMetric
  * counts the total number of successive unknown voxels directly in front of an occupied one, thus targeted at finding
  * hidden volume of the object
  */
-class UnknownObjectVolumeFrontier: public OctomapDRServer::RayInformationMetric
+class UnknownObjectVolumeFrontier: public OctomapDRServer::InformationMetric
 {
   inline std::string type()
   {
@@ -208,7 +219,7 @@ class UnknownObjectVolumeFrontier: public OctomapDRServer::RayInformationMetric
 /** information metric for rays:
  * counts how often a free voxel is followed by an unknown, a metric often described in exploration tasks
  */
-class ClassicFrontier: public OctomapDRServer::RayInformationMetric
+class ClassicFrontier: public OctomapDRServer::InformationMetric
 {
   inline std::string type()
   {
