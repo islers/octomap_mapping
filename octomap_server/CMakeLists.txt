@@ -14,12 +14,15 @@ set(PACKAGE_DEPENDENCIES
   octomap_msgs
   dynamic_reconfigure
   nodelet  
+  image_geometry
 )
 
 
 find_package(catkin REQUIRED COMPONENTS ${PACKAGE_DEPENDENCIES})
 
 find_package(PCL REQUIRED QUIET COMPONENTS common sample_consensus io segmentation filters)
+
+find_package(Boost REQUIRED COMPONENTS system )
 
 find_package(octomap REQUIRED)
 add_definitions(-DOCTOMAP_NODEBUGOUT)
@@ -29,6 +32,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${OCTOMAP_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
 )
 
 
@@ -55,7 +59,11 @@ add_executable(octomap_server_node src/octomap_server_node.cpp)
 target_link_libraries(octomap_server_node ${PROJECT_NAME} ${LINK_LIBS})
 
 add_executable(dr_octomap_server src/dr_octomap_server.cpp src/octomap_dr_server.cpp)
-target_link_libraries(dr_octomap_server ${PROJECT_NAME} ${LINK_LIBS})
+target_link_libraries(dr_octomap_server
+  ${PROJECT_NAME}
+  ${LINK_LIBS}
+  ${Boost_LIBRARIES}
+)
 
 add_executable(octomap_server_static src/octomap_server_static.cpp)
 target_link_libraries(octomap_server_static ${PROJECT_NAME} ${LINK_LIBS})

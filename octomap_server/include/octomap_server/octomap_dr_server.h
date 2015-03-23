@@ -35,14 +35,190 @@ This file is part of dense_reconstruction, a ROS package for...well,
 
 #pragma once
 #include <octomap_server/OctomapServer.h>
+#include <image_geometry/pinhole_camera_model.h>
+#include <dense_reconstruction/ViewInformation.h>
+#include <dense_reconstruction/ViewInformationRequest.h>
+#include <dense_reconstruction/ViewInformationReturn.h>
 
 
 namespace octomap_server {
 class OctomapDRServer:public OctomapServer{
 public:
+  struct InformationRetrievalStructure;
+  class RayInformationMetric;
+  
   OctomapDRServer(ros::NodeHandle private_nh_ = ros::NodeHandle("~"));
   
-protected:
+  /**
+   * service that gathers information related to specific views
+   */
+  bool informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res );
+  
+  /// loads all necessary information about the camera from the camera info topic (default:"/camera/camera_info", can be defined using the 'camera_info_topic' parameter)
+  void cameraInfoCallback( const sensor_msgs::CameraInfoConstPtr& _caminfo );
+private:
+  image_geometry::PinholeCameraModel cam_model_;
+  
+  ros::Subscriber camera_info_subscriber_;
+  
+  std::string camera_info_topic_;
+  
+  /**
+   * possibly recursive function call to retrieve informations for a view that may possibly be further in the future
+   */
+  void informationRetrieval( InformationRetrievalStructure& _info  );
+  
+  /**
+   * retrieves the information for the last view in the _info structure
+   */
+  void retrieveInformationForView( InformationRetrievalStructure& _info );
 };
+
+/// handy structure to bundle function arguments
+struct OctomapDRServer::InformationRetrievalStructure
+{
+  unsigned int iteration_idx; /// which pose is to be processed
+  dense_reconstruction::ViewInformationReturn::Request* request;
+  dense_reconstruction::ViewInformationReturn::Response* response;
+  std::vector<octomap::point3d>* origins;
+  std::vector< Eigen::Quaterniond, Eigen::aligned_allocator<Eigen::Quaterniond> >* orientations;
+  std::vector< Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> >* ray_directions;
+  std::vector< Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> >* forecast_ray_directions;
+  octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* octree; /// current octree on which the function should be operating on
+};
+
+/// abstract base class (interface) for information metrics @TODO: factory?
+class OctomapDRServer::RayInformationMetric
+{
+public:
+  /**
+   * tells the metric on which octree to perform the measurements, won't do anything if this isn't set
+   */
+  inline void setOcTreeTarget( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
+  {
+    octree_ = _octree;
+  }
+  
+  /**
+   * returns the name of the method
+   */
+  virtual std::string type()=0;
+  
+  /**
+   * calculates the information for the data added so far
+   */
+  virtual double getInformation()=0;
+  
+  /**
+   * clears all data, basically reinitializes the metric
+   */
+  virtual void makeReadyForNewRay()=0;
+  
+  /**
+   * includes a measurement for a point on a ray
+   */
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure )=0;
+  
+  /**
+   * includes a measurement for an endpoint
+   */
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )=0;
+  
+protected:
+  octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* octree_;
+};
+
+/** information metric for rays:
+ * counts the number of unknown voxels hit by the ray
+ */
+class NrOfUnknownVoxels: public OctomapDRServer::RayInformationMetric
+{
+  inline std::string type()
+  {
+    return "NrOfUnknownVoxels";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * calculates the average uncertainty of the measurements (basically how close the occupancy likelihood is to 0.5)
+ * max uncertainty: 1, min uncertainty 0
+ */
+class AverageUncertainty: public OctomapDRServer::RayInformationMetric
+{
+  inline std::string type()
+  {
+    return "AverageUncertainty";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * calculates the average uncertainty for found end points for the rays (uncertainty defined as for the AverageUncertainty metric)
+ */
+class AverageEndPointUncertainty: public OctomapDRServer::RayInformationMetric
+{
+  inline std::string type()
+  {
+    return "AverageEndPointUncertainty";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * counts how often an unknown voxel is followed by an occupied one (this is thus an alternative version of the common 'frontier' metric)
+ */
+class UnknownObjectSideFrontier: public OctomapDRServer::RayInformationMetric
+{
+  inline std::string type()
+  {
+    return "UnknownObjectSideFrontier";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * counts the total number of successive unknown voxels directly in front of an occupied one, thus targeted at finding
+ * hidden volume of the object
+ */
+class UnknownObjectVolumeFrontier: public OctomapDRServer::RayInformationMetric
+{
+  inline std::string type()
+  {
+    return "UnknownObjectVolumeFrontier";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * counts how often a free voxel is followed by an unknown, a metric often described in exploration tasks
+ */
+class ClassicFrontier: public OctomapDRServer::RayInformationMetric
+{
+  inline std::string type()
+  {
+    return "ClassicFrontier";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
 }
 

@@ -34,12 +34,14 @@ This file is part of dense_reconstruction, a ROS package for...well,
  */
 
 #include <octomap_server/octomap_dr_server.h>
+#include "boost/foreach.hpp"
 
 
 namespace octomap_server {
   
 OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   :OctomapServer()
+  ,camera_info_topic_("/camera/camera_info")
 {
   
   double bbx_min_x;
@@ -79,7 +81,294 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
     m_update_volume_min.z() = bbx_min_z;
     m_update_volume_max.z() = bbx_max_z;
   }
+  
+  _private_nh.param("camera_info_topic", camera_info_topic_, camera_info_topic_);
+  
+  camera_info_subscriber_ = m_nh.subscribe(camera_info_topic_,1,&OctomapDRServer::cameraInfoCallback, this );
 }
+
+bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res )
+{
+  // test if camera info has been initialized
+  if( !cam_model_.initialized() )
+  {
+    ROS_ERROR("OctomapDRServer::informationService called but no camera information has been received yet. Cannot serve the request.");
+    return false;
+  }
+  if( _req.call.ray_resolution_x==0 || _req.call.ray_resolution_y )
+  {
+    ROS_ERROR("OctomapDRServer::informationService called with ray_resolution_x or ray_resolution_y zero which is not allowed. Cannot serve the request.");
+    return false;
+  }
+  if( _req.call.poses.size()==0 )
+  {
+    ROS_WARN("OctomapDRServer::informationService called without any view poses given.");
+    return true;
+  }
+  
+  // build data needed for the rays
+  std::vector<octomap::point3d> origins; // camera positions
+  std::vector< Eigen::Quaterniond, Eigen::aligned_allocator<Eigen::Quaterniond> > orientations; // camera orientations
+  std::vector< Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > ray_directions; // directions of the rays
+  std::vector< Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d> > forecast_ray_directions; // directions of the rays for forecasting
+  
+  for( unsigned int i=0;i<_req.call.poses.size();i++ )
+  {
+    origins.push_back( octomap::point3d( _req.call.poses[i].position.x, _req.call.poses[i].position.y, _req.call.poses[i].position.z ) );
+    orientations.push_back( Eigen::Quaterniond( _req.call.poses[i].orientation.w, _req.call.poses[i].orientation.x, _req.call.poses[i].orientation.y, _req.call.poses[i].orientation.z ) );
+  }
+  
+  // build ray directions for information retrieval, relative to camera coordinate frame
+  double px_x_step = 1.0/_req.call.ray_resolution_x;
+  double px_y_step = 1.0/_req.call.ray_resolution_y;
+  for( double x=0; x<cam_model_.fullResolution().width; x+=px_x_step )
+  {
+    for( double y=0; y<cam_model_.fullResolution().height; y+=px_y_step )
+    {
+      cv::Point2d pixel(x,y);
+      cv::Point3d ray_direction = cam_model_.projectPixelTo3dRay(pixel);
+      Eigen::Vector3d direction(ray_direction.x, ray_direction.y, ray_direction.z );
+      direction.normalize();
+      ray_directions.push_back(direction);
+    }
+  }
+  
+  if( _req.call.poses.size()!=1 ) // for predictions the "artificial raytracing grid" ray directions need to be built as well
+  {
+    if( _req.call.forecast_ray_resolution_x==0 )
+    {
+      ROS_WARN("OctomapDRServer::informationService: forecast_ray_resolution_x not specified or zero, using same resolution as for information retrieval.");
+      _req.call.forecast_ray_resolution_x = _req.call.ray_resolution_x;
+    }
+    if( _req.call.forecast_ray_resolution_y==0 )
+    {
+      ROS_WARN("OctomapDRServer::informationService: forecast_ray_resolution_y not specified or zero, using same resolution as for information retrieval.");
+      _req.call.forecast_ray_resolution_y = _req.call.ray_resolution_y;
+    }
+    double px_forecast_x_step = 1.0/_req.call.forecast_ray_resolution_x;
+    double px_forecast_y_step = 1.0/_req.call.forecast_ray_resolution_y;
+    for( double x=0; x<cam_model_.fullResolution().width; x+=px_forecast_x_step )
+    {
+      for( double y=0; y<cam_model_.fullResolution().height; y+=px_forecast_y_step )
+      {
+	cv::Point2d pixel(x,y);
+	cv::Point3d ray_direction = cam_model_.projectPixelTo3dRay(pixel);
+	Eigen::Vector3d direction(ray_direction.x, ray_direction.y, ray_direction.z );
+	direction.normalize();
+	forecast_ray_directions.push_back(direction);
+      }
+    }
+  }
+  
+  InformationRetrievalStructure infos;
+  infos.iteration_idx = 0;
+  infos.request = &_req;
+  infos.response = &_res;
+  infos.origins = &origins;
+  infos.orientations = &orientations;
+  infos.ray_directions = &ray_directions;
+  infos.forecast_ray_directions = &forecast_ray_directions;
+  infos.octree = m_octree;
+  
+  informationRetrieval(infos);
+  
+  return true;
+}
+
+void OctomapDRServer::cameraInfoCallback( const sensor_msgs::CameraInfoConstPtr& _caminfo )
+{
+  cam_model_.fromCameraInfo(_caminfo);
+  camera_info_subscriber_.shutdown();
+}
+
+void OctomapDRServer::informationRetrieval( InformationRetrievalStructure& _info  )
+{
+  if( _info.iteration_idx==(_info.origins->size()-1) ) // that's the view for which information shall be received
+  {
+    retrieveInformationForView( _info );
+    return;
+  }
+  else // simulating the future, if different hypothesis techniques were available, they'd be used here (TODO), now assuming that each upcoming observation will simply support what has already been seen
+  {/*
+    octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* octree;
+    if( _info.iteration_idx==0 ) // build hypothetical octree to include synthetic measurements. TODO: Could be optimized e.g. by caching some of the results since very similar calls might come from planner
+    {
+      if (m_stereoModel)
+      {
+	octree = new octomap::ColorOcTreeStereo(_info.octree); TODO (deep copy)
+      }
+      else
+      {
+	octree = new octomap::ColorOcTree(_info.octree); TODO (deep copy)
+      }
+    }
+    else
+    {
+      octree = _info.octree;
+    }
+    // retrieve information... TODO
+    // new InformationRetrievalStructure
+    // recursive call to informationRetrieval(...)
+    
+    if( _info.iteration_idx==0 )
+      delete octree;*/
+  }
+}
+
+void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure& _info )
+{
+  // build vector with all ray metrics
+  std::vector<boost::shared_ptr<RayInformationMetric> > metrics;
+
+  BOOST_FOREACH( std::string metric, _info.request->call.metric_names )
+  {
+    if( metric=="NrOfUnknownVoxels" )
+    {
+      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new NrOfUnknownVoxels() ) );
+    }
+    if( metric=="AverageUncertainty" )
+    {
+      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new AverageUncertainty() ) );
+    }
+    if( metric=="AverageEndPointUncertainty" )
+    {
+      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new AverageEndPointUncertainty() ) );
+    }
+    if( metric=="UnknownObjectSideFrontier" )
+    {
+      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new UnknownObjectSideFrontier() ) );
+    }
+    if( metric=="UnknownObjectVolumeFrontier" )
+    {
+      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new UnknownObjectVolumeFrontier() ) );
+    }
+    if( metric=="ClassicFrontier" )
+    {
+      metrics.push_back( boost::shared_ptr<RayInformationMetric>( new ClassicFrontier() ) );
+    }
+  }
+}
+
+double NrOfUnknownVoxels::getInformation()
+{
+  
+}
+
+void NrOfUnknownVoxels::makeReadyForNewRay()
+{
+  
+}
+
+void NrOfUnknownVoxels::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+double AverageUncertainty::getInformation()
+{
+  
+}
+
+void AverageUncertainty::makeReadyForNewRay()
+{
+  
+}
+
+void AverageUncertainty::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+void AverageUncertainty::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+double AverageEndPointUncertainty::getInformation()
+{
+  
+}
+
+void AverageEndPointUncertainty::makeReadyForNewRay()
+{
+  
+}
+
+void AverageEndPointUncertainty::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+void AverageEndPointUncertainty::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+double UnknownObjectSideFrontier::getInformation()
+{
+  
+}
+
+void UnknownObjectSideFrontier::makeReadyForNewRay()
+{
+  
+}
+
+void UnknownObjectSideFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+void UnknownObjectSideFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+double UnknownObjectVolumeFrontier::getInformation()
+{
+  
+}
+
+void UnknownObjectVolumeFrontier::makeReadyForNewRay()
+{
+  
+}
+
+void UnknownObjectVolumeFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+void UnknownObjectVolumeFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+double ClassicFrontier::getInformation()
+{
+  
+}
+
+void ClassicFrontier::makeReadyForNewRay()
+{
+  
+}
+
+void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
+void ClassicFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  
+}
+
 
 }
 
