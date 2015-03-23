@@ -144,6 +144,8 @@ protected:
  */
 class NrOfUnknownVoxels: public OctomapDRServer::InformationMetric
 {
+public:
+  NrOfUnknownVoxels():unknown_voxel_count(0){};
   inline std::string type()
   {
     return "NrOfUnknownVoxels";
@@ -152,6 +154,8 @@ class NrOfUnknownVoxels: public OctomapDRServer::InformationMetric
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  unsigned int unknown_voxel_count;
 };
 
 /** information metric for rays:
@@ -160,6 +164,7 @@ class NrOfUnknownVoxels: public OctomapDRServer::InformationMetric
  */
 class AverageUncertainty: public OctomapDRServer::InformationMetric
 {
+public:
   inline std::string type()
   {
     return "AverageUncertainty";
@@ -175,6 +180,7 @@ class AverageUncertainty: public OctomapDRServer::InformationMetric
  */
 class AverageEndPointUncertainty: public OctomapDRServer::InformationMetric
 {
+public:
   inline std::string type()
   {
     return "AverageEndPointUncertainty";
@@ -190,6 +196,7 @@ class AverageEndPointUncertainty: public OctomapDRServer::InformationMetric
  */
 class UnknownObjectSideFrontier: public OctomapDRServer::InformationMetric
 {
+public:
   inline std::string type()
   {
     return "UnknownObjectSideFrontier";
@@ -206,6 +213,7 @@ class UnknownObjectSideFrontier: public OctomapDRServer::InformationMetric
  */
 class UnknownObjectVolumeFrontier: public OctomapDRServer::InformationMetric
 {
+public:
   inline std::string type()
   {
     return "UnknownObjectVolumeFrontier";
@@ -221,6 +229,7 @@ class UnknownObjectVolumeFrontier: public OctomapDRServer::InformationMetric
  */
 class ClassicFrontier: public OctomapDRServer::InformationMetric
 {
+public:
   inline std::string type()
   {
     return "ClassicFrontier";

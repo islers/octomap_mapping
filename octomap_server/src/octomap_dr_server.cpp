@@ -226,26 +226,27 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new NrOfUnknownVoxels() ) );
     }
-    if( metric=="AverageUncertainty" )
+    else if( metric=="AverageUncertainty" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new AverageUncertainty() ) );
     }
-    if( metric=="AverageEndPointUncertainty" )
+    else if( metric=="AverageEndPointUncertainty" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new AverageEndPointUncertainty() ) );
     }
-    if( metric=="UnknownObjectSideFrontier" )
+    else if( metric=="UnknownObjectSideFrontier" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectSideFrontier() ) );
     }
-    if( metric=="UnknownObjectVolumeFrontier" )
+    else if( metric=="UnknownObjectVolumeFrontier" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectVolumeFrontier() ) );
     }
-    if( metric=="ClassicFrontier" )
+    else if( metric=="ClassicFrontier" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new ClassicFrontier() ) );
     }
+    metrics.back()->setOcTreeTarget(_info.octree);
   }
   
   // retrieve information for each ray
@@ -366,22 +367,24 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
 
 double NrOfUnknownVoxels::getInformation()
 {
-  
+  return unknown_voxel_count;
 }
 
 void NrOfUnknownVoxels::makeReadyForNewRay()
 {
-  
+  // void
 }
 
 void NrOfUnknownVoxels::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  octomap::ColorOcTreeNode* added = octree_->search(_to_measure);
+  if( added==NULL )
+    ++unknown_voxel_count;
 }
 
 void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  // void - an end point must be occupied and thus can't be unknown
 }
 
 double AverageUncertainty::getInformation()
