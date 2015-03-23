@@ -165,6 +165,7 @@ private:
 class AverageUncertainty: public OctomapDRServer::InformationMetric
 {
 public:
+  AverageUncertainty(): certainty_sum_(0), nr_of_measurements_(0){};
   inline std::string type()
   {
     return "AverageUncertainty";
@@ -173,22 +174,23 @@ public:
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+protected:
+  double certainty_sum_;
+  unsigned int nr_of_measurements_;
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
 /** information metric for rays:
  * calculates the average uncertainty for found end points for the rays (uncertainty defined as for the AverageUncertainty metric)
  */
-class AverageEndPointUncertainty: public OctomapDRServer::InformationMetric
+class AverageEndPointUncertainty: public AverageUncertainty
 {
 public:
   inline std::string type()
   {
     return "AverageEndPointUncertainty";
   }
-  double getInformation();
-  void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
 /** information metric for rays:
@@ -197,6 +199,7 @@ public:
 class UnknownObjectSideFrontier: public OctomapDRServer::InformationMetric
 {
 public:
+  UnknownObjectSideFrontier():front_voxel_count_(0),previous_voxel_unknown_(false){};
   inline std::string type()
   {
     return "UnknownObjectSideFrontier";
@@ -205,15 +208,20 @@ public:
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  unsigned int front_voxel_count_;
+  bool previous_voxel_unknown_;
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
 /** information metric for rays:
  * counts the total number of successive unknown voxels directly in front of an occupied one, thus targeted at finding
- * hidden volume of the object
+ * volumes of the object that haven't been seen so far
  */
 class UnknownObjectVolumeFrontier: public OctomapDRServer::InformationMetric
 {
 public:
+  UnknownObjectVolumeFrontier():volume_count_(0), running_count_(0){};
   inline std::string type()
   {
     return "UnknownObjectVolumeFrontier";
@@ -222,6 +230,10 @@ public:
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  unsigned int volume_count_;
+  unsigned int running_count_;
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
 /** information metric for rays:
@@ -230,6 +242,7 @@ public:
 class ClassicFrontier: public OctomapDRServer::InformationMetric
 {
 public:
+  ClassicFrontier():frontier_voxel_count_(0),previous_voxel_free_(false){};
   inline std::string type()
   {
     return "ClassicFrontier";
@@ -238,6 +251,9 @@ public:
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  unsigned int frontier_voxel_count_;
+  bool previous_voxel_free_;
 };
 
 }

@@ -389,102 +389,156 @@ void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_meas
 
 double AverageUncertainty::getInformation()
 {
-  
+  return 2*(0.5-certainty_sum_/nr_of_measurements_);
 }
 
 void AverageUncertainty::makeReadyForNewRay()
 {
-  
+  // has no effect
 }
 
 void AverageUncertainty::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  includeMeasurement(_to_measure);
 }
 
 void AverageUncertainty::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  includeMeasurement(_to_measure);
 }
 
-double AverageEndPointUncertainty::getInformation()
+void AverageUncertainty::includeMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
-}
-
-void AverageEndPointUncertainty::makeReadyForNewRay()
-{
-  
+  double occupany_likelihood;
+  octomap::ColorOcTreeNode* added = octree_->search(_to_measure);
+  if( added==NULL )
+  {
+    occupany_likelihood=0.5; // default for unknown
+  }
+  else
+  {
+    occupany_likelihood = added->getOccupancy();
+  }
+  certainty_sum_+=std::fabs(0.5-occupany_likelihood);
+  ++nr_of_measurements_;
 }
 
 void AverageEndPointUncertainty::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
-}
-
-void AverageEndPointUncertainty::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
-{
-  
+  // void
 }
 
 double UnknownObjectSideFrontier::getInformation()
 {
-  
+  return front_voxel_count_;
 }
 
 void UnknownObjectSideFrontier::makeReadyForNewRay()
 {
-  
+  previous_voxel_unknown_ = false;
 }
 
 void UnknownObjectSideFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  includeMeasurement(_to_measure);
 }
 
 void UnknownObjectSideFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  includeMeasurement(_to_measure);
+}
+
+void UnknownObjectSideFrontier::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  octomap::ColorOcTreeNode* added = octree_->search(_to_measure);
+  if( added==NULL )
+  {
+    previous_voxel_unknown_=true;
+  }
+  else
+  {
+    if( octree_->isNodeOccupied( added ) && previous_voxel_unknown_ ) // object side frontier!
+    {
+      ++front_voxel_count_;
+    }
+    previous_voxel_unknown_=false;
+  }
 }
 
 double UnknownObjectVolumeFrontier::getInformation()
 {
-  
+  return volume_count_;
 }
 
 void UnknownObjectVolumeFrontier::makeReadyForNewRay()
 {
-  
+  running_count_ = 0;
 }
 
 void UnknownObjectVolumeFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  includeMeasurement(_to_measure);
 }
 
 void UnknownObjectVolumeFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  includeMeasurement(_to_measure);
+}
+
+void UnknownObjectVolumeFrontier::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  octomap::ColorOcTreeNode* to_measure = octree_->search(_to_measure);
+  if( to_measure==NULL )
+  {
+    ++running_count_;
+  }
+  else
+  {
+    if( octree_->isNodeOccupied( to_measure ) ) // object side frontier!
+    {
+      volume_count_+=running_count_;
+    }
+    running_count_=0;
+  }
 }
 
 double ClassicFrontier::getInformation()
 {
-  
+  return frontier_voxel_count_;
 }
 
 void ClassicFrontier::makeReadyForNewRay()
 {
-  
+  previous_voxel_free_=false;
 }
 
 void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  octomap::ColorOcTreeNode* to_measure = octree_->search(_to_measure);
+  if( to_measure==NULL )
+  {
+    if( previous_voxel_free_ )
+    {
+      ++frontier_voxel_count_;
+    }
+    previous_voxel_free_ = false;
+  }
+  else
+  {
+    if( !octree_->isNodeOccupied( to_measure ) ) // frontier
+    {
+      previous_voxel_free_ = true;
+    }
+    else
+    {
+      previous_voxel_free_ = false;
+    }
+  }
 }
 
 void ClassicFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
-  
+  // void since end points are occupied by definition
 }
 
 
