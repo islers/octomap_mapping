@@ -174,10 +174,10 @@ public:
   {
     return "AverageUncertainty";
   }
-  double getInformation();
-  void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual double getInformation();
+  virtual void makeReadyForNewRay();
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
 protected:
   double certainty_sum_;
   unsigned int nr_of_measurements_;

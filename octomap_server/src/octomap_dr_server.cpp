@@ -54,7 +54,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   if( _private_nh.getParam("update_volume/min/x",bbx_min_x) &&
     _private_nh.getParam("update_volume/max/x",bbx_max_x) )
   {
-    ROS_INFO("Set update limits for x.");
+    ROS_INFO("Set update limits for: x.");
     
     m_update_volume_min.x() = bbx_min_x;
     m_update_volume_max.x() = bbx_max_x;
@@ -65,7 +65,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
     _private_nh.getParam("update_volume/min/y",bbx_min_y) &&
     _private_nh.getParam("update_volume/max/y",bbx_max_y) )
   {
-    ROS_INFO("Set update limits for y.");
+    ROS_INFO("Set update limits for: y.");
     
     m_update_volume_min.y() = bbx_min_y;
     m_update_volume_max.y() = bbx_max_y;
@@ -76,7 +76,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
     _private_nh.getParam("update_volume/min/z",bbx_min_z) &&
     _private_nh.getParam("update_volume/max/z",bbx_max_z) )
   {
-    ROS_INFO("Set update limits for z.");
+    ROS_INFO("Set update limits for: z.");
     
     m_update_volume_min.z() = bbx_min_z;
     m_update_volume_max.z() = bbx_max_z;
@@ -436,6 +436,9 @@ void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_meas
 
 double AverageUncertainty::getInformation()
 {
+  if( nr_of_measurements_==0 )
+    return 1;
+  
   return 2*(0.5-certainty_sum_/nr_of_measurements_);
 }
 
