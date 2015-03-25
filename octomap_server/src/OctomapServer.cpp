@@ -267,7 +267,7 @@ bool OctomapServer::openFile(const std::string& filename){
 
 void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
   ros::WallTime startTime = ros::WallTime::now();
-
+  ROS_INFO("Received new cloud input.");
   //
   // ground filtering in base frame
   //
@@ -377,6 +377,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
   publishAll(cloud->header.stamp);
+  ROS_INFO("Received cloud processed.");
 }
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::Vector3& sensorOrientation,

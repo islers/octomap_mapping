@@ -137,9 +137,9 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
     return false;
   }
   
-  for( double x=min_x; x<max_x; x+=px_x_step )
+  for( double x=min_x; x<=max_x; x+=px_x_step )
   {
-    for( double y=min_y; y<max_y; y+=px_y_step )
+    for( double y=min_y; y<=max_y; y+=px_y_step )
     {
       cv::Point2d pixel(x,y);
       cv::Point3d ray_direction = cam_model_.projectPixelTo3dRay(pixel);
@@ -188,6 +188,8 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
   infos.octree = m_octree;
   
   informationRetrieval(infos);
+  
+  ROS_INFO("Service finished.");
   
   return true;
 }
