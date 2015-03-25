@@ -439,7 +439,7 @@ void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_meas
 double AverageUncertainty::getInformation()
 {
   if( nr_of_measurements_==0 )
-    return 1;
+    return 0; // no endpoints retrieved - no uncertainty
   
   return 2*(0.5-certainty_sum_/nr_of_measurements_);
 }
