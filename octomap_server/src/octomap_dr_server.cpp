@@ -327,7 +327,7 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
   double min_ray_depth = (_min_ray_depth==0)?0.005:_min_ray_depth; //default for min ray depth [m]
   
   bool found_endpoint = _octree->castRay( _origin, _direction, end_point, true, max_range ); // ignore unknown cells
-  
+  /* // deactivated since it seemed it literally never happend
   if( found_endpoint ) // check that endpoint satisfies constraints and move startpoint once if on occupied voxel
   {
     octomap::point3d offset_origin = _origin;
@@ -380,7 +380,7 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
 	}while( occ_likelihood<log_odd_passthrough_threshold );
       }
     }
-  }
+  }*/
   
   // calculate metrics for all points on ray, calculate points on ray
   if( !found_endpoint ) // *artificial end point*
