@@ -415,7 +415,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       ROS_ERROR_STREAM("Could not generate Key for endpoint "<<point);
     }
   }
-
+  //ros::Time start = ros::Time::now();
   // all other points: free on ray, occupied on endpoint:
   for (PCLPointCloud::const_iterator it = nonground.begin(); it != nonground.end(); ++it){
     point3d point(it->x, it->y, it->z);
@@ -459,9 +459,13 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       }
     }
   }
+  
+  //ros::Duration calc_time = ros::Time::now()-start;
+  //ROS_INFO_STREAM("Average calculation time for processing each pcl point was: "<<calc_time.toSec()/nonground.size()<<" seconds.");
 
   if (m_stereoModel)
   {
+    //ros::Time start2 = ros::Time::now();
     // insert data into tree  -----------------------
     for (KeySet::iterator it = free_cells.begin(); it != free_cells.end(); ++it)
     {
@@ -480,6 +484,8 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       char b = (*color_it)(2);
       octree->averageNodeColor( *it, r, g, b );
     }
+    //ros::Duration calc_time2 = ros::Time::now()-start2;
+    //ROS_INFO_STREAM("Average calculation time for processing each pcl point was: "<<calc_time2.toSec()/(free_cells.size()+occupied_cells.size())<<" seconds.");
   }
   else
   {

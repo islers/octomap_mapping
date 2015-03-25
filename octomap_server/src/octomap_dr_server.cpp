@@ -289,7 +289,7 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
       cast->calculateOnTree(_info.octree);
     }
   }
-  
+  //ros::Time start = ros::Time::now();
   // retrieve information for each ray
   for( unsigned int i=0; i<_info.ray_directions->size(); ++i )
   {
@@ -304,6 +304,9 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     octomap::point3d direction( dir_oct.x(), dir_oct.y(), dir_oct.z() );
     retrieveInformationForRay( _info.octree, metrics, _info.origins->back(), direction, _info.request->call.min_ray_depth, _info.request->call.max_ray_depth, _info.request->call.occupied_passthrough_threshold, _info.request->call.ray_step_size );
   }
+  
+  //ros::Duration calc_time = ros::Time::now()-start;
+  //ROS_INFO_STREAM("Average calculation time per ray was: "<<calc_time.toSec()/_info.ray_directions->size()<<" seconds.");
   
   _info.response->expected_information.metric_names = _info.request->call.metric_names;
   
@@ -327,6 +330,8 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
   double min_ray_depth = (_min_ray_depth==0)?0.005:_min_ray_depth; //default for min ray depth [m]
   
   bool found_endpoint = _octree->castRay( _origin, _direction, end_point, true, max_range ); // ignore unknown cells
+  
+  
   /* // deactivated since it seemed it literally never happend
   if( found_endpoint ) // check that endpoint satisfies constraints and move startpoint once if on occupied voxel
   {
@@ -383,33 +388,48 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
   }*/
   
   // calculate metrics for all points on ray, calculate points on ray
-  if( !found_endpoint ) // *artificial end point*
-    end_point = _origin + _direction*max_range;
+  //ros::Time time1 = ros::Time::now();
+  //if( !found_endpoint ) // *artificial end point* // actually don't care about rays that don't hit anything!
+  //  end_point = _origin + _direction*max_range;
   
-  octomap::KeyRay ray;
-  _octree->computeRayKeys( _origin, end_point, ray );
-  
-  unsigned int count=0;
-  for( octomap::KeyRay::iterator it = ray.begin() ; it!=ray.end(); ++it, ++count )
-  {
-    if( count%_ray_step_size==0 )
-    {
-      BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, _metrics )
-      {
-	metric->includeRayMeasurement( *it );
-      }
-    }
-  }
-  
-  // calculate metric for end point of ray if it exists
   if( found_endpoint )
   {
-    octomap::OcTreeKey end_key = _octree->coordToKey(end_point);
-    BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, _metrics )
+    //ros::Time time2 = ros::Time::now();
+    octomap::KeyRay ray;
+    _octree->computeRayKeys( _origin, end_point, ray );
+    
+    //ros::Time time3 = ros::Time::now();
+    unsigned int count=0;
+    int test;
+    for( octomap::KeyRay::iterator it = ray.begin() ; it!=ray.end(); ++it, ++count )
     {
-      metric->includeEndPointMeasurement( end_key );
+      if( count%_ray_step_size==0 )
+      {
+	for( unsigned int i=0; i<_metrics.size();++i )
+	{
+	  _metrics[i]->includeRayMeasurement( *it );
+	}
+      }
+    }
+    //ros::Time time4 = ros::Time::now();
+    // calculate metric for end point of ray if it exists
+  
+    octomap::OcTreeKey end_key = _octree->coordToKey(end_point);
+    for( unsigned int i=0; i<_metrics.size();++i )
+    {
+      _metrics[i]->includeEndPointMeasurement( end_key );
     }
   }
+  //ros::Time time5 = ros::Time::now();
+  
+  /*ros::Duration endpoint_test = time2-time1;
+  ros::Duration compute_ray = time3-time2;
+  ros::Duration include_ray = time4-time3;
+  ros::Duration include_end = time5-time3;
+  ROS_INFO_STREAM("endpoint_test: "<<endpoint_test.toNSec()<<" ns");
+  ROS_INFO_STREAM("compute_ray: "<<compute_ray.toNSec()<<" ns");
+  ROS_INFO_STREAM("include_ray: "<<include_ray.toNSec()<<" ns");
+  ROS_INFO_STREAM("include_end: "<<include_end.toNSec()<<" ns");*/
   
   return;
 }
