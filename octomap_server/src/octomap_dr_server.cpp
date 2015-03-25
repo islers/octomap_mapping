@@ -611,7 +611,8 @@ void EndNodeOccupancySum::includeRayMeasurement( octomap::OcTreeKey& _to_measure
 void EndNodeOccupancySum::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
   octomap::ColorOcTreeNode* to_measure = octree_->search(_to_measure);
-  if( to_measure==NULL )
+  sum_+=to_measure->getOccupancy(); // end points are always occupied
+  /*if( to_measure==NULL )
   {
     // unknown
   }
@@ -621,7 +622,7 @@ void EndNodeOccupancySum::includeEndPointMeasurement( octomap::OcTreeKey& _to_me
     {
       sum_+=to_measure->getOccupancy();
     }
-  }
+  }*/
 }
 
 void TotalOccupancyCertainty::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
