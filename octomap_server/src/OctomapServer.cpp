@@ -67,7 +67,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_use_update_volume_z(false),
   m_update_volume_min(-std::numeric_limits<double>::max(),-std::numeric_limits<double>::max(),-std::numeric_limits<double>::max()),
   m_update_volume_max(std::numeric_limits<double>::max(),std::numeric_limits<double>::max(),std::numeric_limits<double>::max()),
-  m_use_color(true)
+  m_use_color(true),
+  m_tfListener(ros::Duration(60))
 {
   ros::NodeHandle private_nh(private_nh_);
   private_nh.param("frame_id", m_worldFrameId, m_worldFrameId);
