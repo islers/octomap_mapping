@@ -434,10 +434,10 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
         occupied_cells.insert(key);
 	
 	Eigen::Vector3i color;
-	const int rgb = *reinterpret_cast<const int*>(&(it->rgb));
-	color(0) = ((rgb >> 16) & 0xff);
-	color(1) = ((rgb >> 8) & 0xff);
-	color(2) = (rgb & 0xff);
+	const uint32_t rgb = *reinterpret_cast<const int*>(&(it->rgb));
+	color(0) = (rgb >> 16) & 0x0000ff;
+	color(1) = (rgb >> 8) & 0x0000ff;
+	color(2) = (rgb) & 0x0000ff;
 	occupied_cells_colors.push_back( color );
 
         updateMinKey(key, m_updateBBXMin);
@@ -483,7 +483,9 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       char r = (*color_it)(0);
       char g = (*color_it)(1);
       char b = (*color_it)(2);
-      octree->averageNodeColor( *it, r, g, b );
+      ColorOcTreeNode* n = octree->search(*it);
+      n->setColor(r,g,b);
+      //octree->averageNodeColor( *it, r, g, b );
     }
     //ros::Duration calc_time2 = ros::Time::now()-start2;
     //ROS_INFO_STREAM("Average calculation time for processing each pcl point was: "<<calc_time2.toSec()/(free_cells.size()+occupied_cells.size())<<" seconds.");

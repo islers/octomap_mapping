@@ -39,6 +39,7 @@ This file is part of dense_reconstruction, a ROS package for...well,
 #include <dense_reconstruction/ViewInformation.h>
 #include <dense_reconstruction/ViewInformationRequest.h>
 #include <dense_reconstruction/ViewInformationReturn.h>
+#include <visualization_msgs/Marker.h>
 
 
 namespace octomap_server {
@@ -61,8 +62,19 @@ private:
   
   ros::ServiceServer view_information_server_;
   ros::Subscriber camera_info_subscriber_;
+  ros::Publisher marker_visualizer_;
   
   std::string camera_info_topic_;
+  
+  bool display_rays_;
+  
+  /**
+   * creates and publishes a message for RVIZ to visualize the ray
+   * @param _origin line origin
+   * @param _direction line direction
+   * @param _length line length [m], default is 4m
+   */
+  void displayRay( octomap::point3d& _origin, octomap::point3d& _direction, double _length=4 );
   
   /**
    * possibly recursive function call to retrieve informations for a view that may possibly be further in the future

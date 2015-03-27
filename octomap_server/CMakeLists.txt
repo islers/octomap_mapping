@@ -15,6 +15,7 @@ set(PACKAGE_DEPENDENCIES
   dynamic_reconfigure
   nodelet
   image_geometry
+  visualization_msgs
 )
 
 

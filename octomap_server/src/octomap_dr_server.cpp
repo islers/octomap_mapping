@@ -42,6 +42,7 @@ namespace octomap_server {
 OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   :OctomapServer()
   ,camera_info_topic_("/camera/camera_info")
+  ,display_rays_(false)
 {
   
   double bbx_min_x;
@@ -50,6 +51,8 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   double bbx_max_x;
   double bbx_max_y;
   double bbx_max_z;
+  
+  _private_nh.getParam("display_rays",display_rays_);
   
   if( _private_nh.getParam("update_volume/min/x",bbx_min_x) &&
     _private_nh.getParam("update_volume/max/x",bbx_max_x) )
@@ -86,6 +89,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   
   camera_info_subscriber_ = m_nh.subscribe(camera_info_topic_,1,&OctomapDRServer::cameraInfoCallback, this );
   view_information_server_ = m_nh.advertiseService("/dense_reconstruction/3d_model/information", &OctomapDRServer::informationService, this);
+  marker_visualizer_ = m_nh.advertise<visualization_msgs::Marker>("/dense_reconstruction/octomap/visualization", 10);
 }
 
 bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res )
@@ -137,7 +141,7 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
     return false;
   }
   
-  for( double x=min_x; x<=max_x; x+=px_x_step )
+  for( double x=min_x; x<=max_x; x+=px_x_step ) // just to test the directions
   {
     for( double y=min_y; y<=max_y; y+=px_y_step )
     {
@@ -148,6 +152,7 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
       ray_directions.push_back(direction);
     }
   }
+  
   ROS_INFO_STREAM("A total number of "<<ray_directions.size()<<" rays will be cast per view.");
   
   if( _req.call.poses.size()!=1 ) // for predictions the "artificial raytracing grid" ray directions need to be built as well
@@ -198,6 +203,38 @@ void OctomapDRServer::cameraInfoCallback( const sensor_msgs::CameraInfoConstPtr&
 {
   cam_model_.fromCameraInfo(_caminfo);
   camera_info_subscriber_.shutdown();
+}
+
+void OctomapDRServer::displayRay( octomap::point3d& _origin, octomap::point3d& _direction, double _length )
+{
+  visualization_msgs::Marker line;
+  line.header.frame_id = "dr_origin";
+  line.header.stamp = ros::Time::now();
+  line.ns = "information_score_ray";
+  line.action = visualization_msgs::Marker::ADD;
+  line.pose.orientation.w = 1.0;
+  line.id = 0;
+  
+  line.type = visualization_msgs::Marker::LINE_STRIP;
+  
+  line.lifetime = ros::Duration(0.01);
+  
+  line.scale.x = 0.1;
+  line.color.g = 1;
+  line.color.r = 1;
+  line.color.a = 1;
+  
+  geometry_msgs::Point origin,end;
+  origin.x = _origin.x();
+  origin.y =_origin.y();
+  origin.z = _origin.z();
+  end.x = _origin.x()+_length*_direction.x();
+  end.y = _origin.y()+_length*_direction.y();
+  end.z = _origin.z()+_length*_direction.z();
+    
+  line.points.push_back(origin);
+  line.points.push_back(end);
+  marker_visualizer_.publish(line);
 }
 
 void OctomapDRServer::informationRetrieval( InformationRetrievalStructure& _info  )
@@ -302,6 +339,11 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     // transform direction from camera coordinates to octomap coordinates, given orientation of the view
     Eigen::Vector3d dir_oct = _info.orientations->back()*(*_info.ray_directions)[i];
     octomap::point3d direction( dir_oct.x(), dir_oct.y(), dir_oct.z() );
+    if( display_rays_ )
+    {
+      displayRay( _info.origins->back(), direction );
+      ros::Duration(0.005).sleep();
+    }
     retrieveInformationForRay( _info.octree, metrics, _info.origins->back(), direction, _info.request->call.min_ray_depth, _info.request->call.max_ray_depth, _info.request->call.occupied_passthrough_threshold, _info.request->call.ray_step_size );
   }
   
