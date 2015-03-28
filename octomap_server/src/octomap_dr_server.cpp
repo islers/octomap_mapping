@@ -219,7 +219,7 @@ void OctomapDRServer::displayRay( octomap::point3d& _origin, octomap::point3d& _
   
   line.lifetime = ros::Duration(0.01);
   
-  line.scale.x = 0.1;
+  line.scale.x = 0.02;
   line.color.g = 1;
   line.color.r = 1;
   line.color.a = 1;
@@ -341,8 +341,12 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     octomap::point3d direction( dir_oct.x(), dir_oct.y(), dir_oct.z() );
     if( display_rays_ )
     {
-      displayRay( _info.origins->back(), direction );
-      ros::Duration(0.005).sleep();
+      int display_every = _info.ray_directions->size()/20; // display 20 rays...
+      if( i%display_every==0 )
+      {
+	displayRay( _info.origins->back(), direction );
+	ros::Duration(0.005).sleep();
+      }
     }
     retrieveInformationForRay( _info.octree, metrics, _info.origins->back(), direction, _info.request->call.min_ray_depth, _info.request->call.max_ray_depth, _info.request->call.occupied_passthrough_threshold, _info.request->call.ray_step_size );
   }
