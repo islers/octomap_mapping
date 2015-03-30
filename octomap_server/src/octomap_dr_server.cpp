@@ -314,6 +314,10 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalNrOfOccupieds() ) );
     }
+    else if( metric=="TotalNrOfNodes" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalNrOfNodes() ) );
+    }
     metrics.back()->setOcTreeTarget(_info.octree);
   }
   
@@ -719,6 +723,16 @@ void TotalNrOfOccupieds::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::
 }
 
 double TotalNrOfOccupieds::getInformation()
+{
+  return sum_;
+}
+
+void TotalNrOfNodes::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
+{
+  sum_ = _octree->size();
+}
+
+double TotalNrOfNodes::getInformation()
 {
   return sum_;
 }

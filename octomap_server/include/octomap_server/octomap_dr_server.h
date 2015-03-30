@@ -336,5 +336,24 @@ private:
   unsigned int sum_;
 };
 
+/** total number of occupieds in the whole tree
+ */
+class TotalNrOfNodes: public TotalTreeMetric
+{
+public:
+  TotalNrOfNodes():sum_(0){};
+  inline std::string type()
+  {
+    return "TotalNrOfNodes";
+  }
+  void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree );
+  double getInformation();
+  void makeReadyForNewRay(){};
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+private:
+  unsigned int sum_;
+};
+
 }
 
