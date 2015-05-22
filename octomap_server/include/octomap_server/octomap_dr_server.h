@@ -139,7 +139,7 @@ public:
   /**
    * clears all ray specific data, gets ready for a new ray
    */
-  virtual void makeReadyForNewRay()=0;
+  virtual void makeReadyForNewRay(){};
   
   /**
    * includes a measurement for a point on a ray
@@ -153,6 +153,175 @@ public:
   
 protected:
   octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* octree_;
+};
+
+class IgnorantTotalIG: OctomapDRServer::InformationMetric
+{
+public:
+  IgnorantTotalIG():ig_(0.0){};
+  inline std::string type()
+  {
+    return "IgnorantTotalIG";
+  }
+  
+  /**
+   * returns the occupancy likelihodd for the voxel
+   */
+  virtual double getOccupancy( octomap::OcTreeKey& _to_measure );
+  
+  /**
+   * calculates the information gain for the voxel
+   */
+  virtual double calcIG( double _p_occ );
+  
+  virtual double getInformation();
+  virtual void makeReadyForNewRay();
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  
+  static double unknown_p_prior_;
+  static double unknown_lower_bound_;
+  static double unknown_upper_bound_;
+  
+private:
+  double ig_;
+  
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+class OccupancyAwareTotalIG: IgnorantTotalIG
+{
+public:
+  OccupancyAwareTotalIG():ig_(0.0),p_vis_(1.0){};
+  inline std::string type()
+  {
+    return "OccupancyAwareTotalIG";
+  }
+  
+  virtual double getInformation();
+  virtual void makeReadyForNewRay();
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  
+  static double unknown_p_prior_;
+  static double unknown_lower_bound_;
+  static double unknown_upper_bound_;
+  
+private:
+  double ig_;
+  double p_vis_;
+  
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * counts how often a free voxel is followed by an unknown, a metric often described in exploration tasks
+ */
+class ClassicFrontier: public OctomapDRServer::InformationMetric
+{
+public:
+  ClassicFrontier():frontier_voxel_count_(0),previous_voxel_free_(false),already_counts_(false){};
+  inline std::string type()
+  {
+    return "ClassicFrontier";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  unsigned int frontier_voxel_count_;
+  bool previous_voxel_free_;
+  bool already_counts_;
+};
+
+class TotalUnknownIG: IgnorantTotalIG
+{
+public:
+  TotalUnknownIG():ig_(0.0),p_vis_(1.0),previous_voxel_free_(false),already_counts_(false){};
+  inline std::string type()
+  {
+    return "TotalUnknownIG";
+  }
+  
+  virtual double getInformation();
+  virtual void makeReadyForNewRay();
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  
+  /**
+   * whether the ray passed a frontier
+   * @arg _p_occ occupancy likelihood of the current voxel
+   */
+  virtual bool isFrontierPassRay( double _p_occ );
+  
+  static double unknown_p_prior_;
+  static double unknown_lower_bound_;
+  static double unknown_upper_bound_;
+  
+private:
+  double ig_;
+  double p_vis_;
+  bool previous_voxel_free_;
+  bool already_counts_;
+  
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+/** information metric for rays:
+ * counts how often an unknown voxel is followed by an occupied one (this is thus an alternative version of the common 'frontier' metric)
+ */
+class UnknownObjectSideFrontier: public OctomapDRServer::InformationMetric
+{
+public:
+  UnknownObjectSideFrontier():front_voxel_count_(0),previous_voxel_unknown_(false){};
+  inline std::string type()
+  {
+    return "UnknownObjectSideFrontier";
+  }
+  double getInformation();
+  void makeReadyForNewRay();
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+private:
+  unsigned int front_voxel_count_;
+  bool previous_voxel_unknown_;
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
+class UnknownObjectVolumeIG: IgnorantTotalIG
+{
+public:
+  UnknownObjectVolumeIG():ig_(0.0),p_vis_(1.0),previous_voxel_unknown_(false),hits_unknown_side_(false){};
+  inline std::string type()
+  {
+    return "UnknownObjectVolumeIG";
+  }
+  
+  bool hitsUnknownSide();
+  bool isUnknownVoxel( double _p_occ );
+  
+  /**
+   * @arg _p_occ occupancy likelihood of the current voxel
+   */
+  void updateUnknownSideHit( double _p_occ );
+  
+  virtual double getInformation();
+  virtual void makeReadyForNewRay();
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  
+  static double unknown_p_prior_;
+  static double unknown_lower_bound_;
+  static double unknown_upper_bound_;
+  
+private:
+  double ig_;
+  double p_vis_;
+  bool previous_voxel_unknown_;
+  bool hits_unknown_side_;
+  
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
 /** information metric for rays:
@@ -210,27 +379,6 @@ public:
 };
 
 /** information metric for rays:
- * counts how often an unknown voxel is followed by an occupied one (this is thus an alternative version of the common 'frontier' metric)
- */
-class UnknownObjectSideFrontier: public OctomapDRServer::InformationMetric
-{
-public:
-  UnknownObjectSideFrontier():front_voxel_count_(0),previous_voxel_unknown_(false){};
-  inline std::string type()
-  {
-    return "UnknownObjectSideFrontier";
-  }
-  double getInformation();
-  void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
-private:
-  unsigned int front_voxel_count_;
-  bool previous_voxel_unknown_;
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
-};
-
-/** information metric for rays:
  * counts the total number of successive unknown voxels directly in front of an occupied one, thus targeted at finding
  * volumes of the object that haven't been seen so far
  */
@@ -250,26 +398,6 @@ private:
   unsigned int volume_count_;
   unsigned int running_count_;
   void includeMeasurement( octomap::OcTreeKey& _to_measure );
-};
-
-/** information metric for rays:
- * counts how often a free voxel is followed by an unknown, a metric often described in exploration tasks
- */
-class ClassicFrontier: public OctomapDRServer::InformationMetric
-{
-public:
-  ClassicFrontier():frontier_voxel_count_(0),previous_voxel_free_(false){};
-  inline std::string type()
-  {
-    return "ClassicFrontier";
-  }
-  double getInformation();
-  void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
-private:
-  unsigned int frontier_voxel_count_;
-  bool previous_voxel_free_;
 };
 
 /** information metric for rays:
@@ -334,6 +462,44 @@ public:
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
 private:
   unsigned int sum_;
+};
+
+/** total number of free nodes in the whole tree
+ */
+class TotalNrOfFree: public TotalTreeMetric
+{
+public:
+  TotalNrOfFree():sum_(0){};
+  inline std::string type()
+  {
+    return "TotalNrOfFree";
+  }
+  void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree );
+  double getInformation();
+  void makeReadyForNewRay(){};
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+private:
+  unsigned int sum_;
+};
+
+/** total entropy in the whole tree
+ */
+class TotalEntropy: public TotalTreeMetric
+{
+public:
+  TotalEntropy():sum_(0){};
+  inline std::string type()
+  {
+    return "TotalEntropy";
+  }
+  void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree );
+  double getInformation();
+  void makeReadyForNewRay(){};
+  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+private:
+  double sum_;
 };
 
 /** total number of occupieds in the whole tree

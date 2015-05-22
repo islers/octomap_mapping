@@ -632,16 +632,21 @@ double ClassicFrontier::getInformation()
 void ClassicFrontier::makeReadyForNewRay()
 {
   previous_voxel_free_=false;
+  already_counts_=false;
 }
 
 void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 {
+  if( already_counts_ ) 
+    return;
+  
   octomap::ColorOcTreeNode* to_measure = octree_->search(_to_measure);
   if( to_measure==NULL )
   {
     if( previous_voxel_free_ )
     {
       ++frontier_voxel_count_;
+      already_counts_=true;
     }
     previous_voxel_free_ = false;
   }
@@ -727,6 +732,39 @@ double TotalNrOfOccupieds::getInformation()
   return sum_;
 }
 
+void TotalNrOfFree::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
+{
+  for( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>::leaf_iterator it = _octree->begin_leafs(); it!=_octree->end_leafs(); ++it )
+  {
+    if( !octree_->isNodeOccupied( *it ) )
+    {
+      ++sum_;
+    }
+  }
+}
+
+double TotalNrOfFree::getInformation()
+{
+  return sum_;
+}
+
+void TotalEntropy::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
+{
+  for( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>::leaf_iterator it = _octree->begin_leafs(); it!=_octree->end_leafs(); ++it )
+  {
+    double p_occ = it->getOccupancy();
+    double p_free = 1-p_occ;
+    double vox_ig = -p_occ*log(p_occ)-p_free*log(p_free);
+    
+    sum_+=vox_ig;
+  }
+}
+
+double TotalEntropy::getInformation()
+{
+  return sum_;
+}
+
 void TotalNrOfNodes::calculateOnTree( octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* _octree )
 {
   sum_ = _octree->size();
@@ -738,5 +776,211 @@ double TotalNrOfNodes::getInformation()
 }
 
 
+double IgnorantTotalIG::unknown_p_prior_ = 0.2;
+double IgnorantTotalIG::unknown_lower_bound_ = 0.15;
+double IgnorantTotalIG::unknown_upper_bound_ = 0.8;
+
+double IgnorantTotalIG::getOccupancy( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ;
+  octomap::ColorOcTreeNode* added = octree_->search(_to_measure);
+  if( added==NULL )
+  {
+    p_occ=unknown_p_prior_; // default for unknown
+  }
+  else
+  {
+    p_occ = added->getOccupancy();
+  }
+  return p_occ;
 }
 
+double IgnorantTotalIG::calcIG( double _p_occ )
+{
+  double p_free = 1-_p_occ;
+  double vox_ig = -_p_occ*log(_p_occ)-p_free*log(p_free);
+  return vox_ig;
+}
+
+double IgnorantTotalIG::getInformation()
+{
+  return ig_;
+}
+
+void IgnorantTotalIG::makeReadyForNewRay()
+{
+  ig_=0;
+}
+
+void IgnorantTotalIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void IgnorantTotalIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void IgnorantTotalIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ = getOccupancy(_to_measure);
+  double vox_ig = calcIG(p_occ);
+  ig_ += vox_ig;
+}
+
+double OccupancyAwareTotalIG::getInformation()
+{
+  return ig_;
+}
+
+void OccupancyAwareTotalIG::makeReadyForNewRay()
+{
+  ig_=0;
+  p_vis_=1;
+}
+
+void OccupancyAwareTotalIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void OccupancyAwareTotalIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void OccupancyAwareTotalIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ = getOccupancy(_to_measure);
+  double vox_ig = calcIG(p_occ);
+  ig_ += p_vis_*vox_ig;
+  p_vis_*=p_occ;
+}
+
+double TotalUnknownIG::getInformation()
+{
+  return ig_;
+}
+
+void TotalUnknownIG::makeReadyForNewRay()
+{
+  ig_=0;
+  p_vis_=1;
+}
+
+void TotalUnknownIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void TotalUnknownIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+bool TotalUnknownIG::isFrontierPassRay( double _p_occ )
+{
+  if( already_counts_ )
+    return true;
+  
+  if( _p_occ<IgnorantTotalIG::unknown_upper_bound_ && _p_occ>IgnorantTotalIG::unknown_lower_bound_ )
+  {
+    if( previous_voxel_free_ )
+    {
+      already_counts_=true;
+      return true;
+    }
+  }
+  else if(_p_occ<=IgnorantTotalIG::unknown_lower_bound_ ) // if it is free
+  {
+    previous_voxel_free_ = true;
+  }
+  else
+  {
+    previous_voxel_free_ = false;
+  }
+  return false;
+}
+
+void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ = getOccupancy(_to_measure);
+  
+  if( isFrontierPassRay(p_occ) )
+  {
+    double vox_ig = calcIG(p_occ);
+    ig_ += p_vis_*vox_ig;
+  }
+  p_vis_*=p_occ;
+}
+
+bool UnknownObjectVolumeIG::hitsUnknownSide()
+{
+  return hits_unknown_side_;
+}
+
+bool UnknownObjectVolumeIG::isUnknownVoxel( double _p_occ )
+{
+  return _p_occ<IgnorantTotalIG::unknown_upper_bound_ && _p_occ>IgnorantTotalIG::unknown_lower_bound_;
+}
+
+void UnknownObjectVolumeIG::updateUnknownSideHit( double _p_occ )
+{
+  if( isUnknownVoxel( _p_occ ) )
+  {
+    previous_voxel_unknown_ = true;
+  }
+  else
+  {
+    previous_voxel_unknown_ = false;
+  }
+}
+
+double UnknownObjectVolumeIG::getInformation()
+{
+  if( !hitsUnknownSide() )
+  {
+    return 0;
+  }
+  return ig_;
+}
+
+void UnknownObjectVolumeIG::makeReadyForNewRay()
+{
+  ig_=0;
+  p_vis_=1;
+  previous_voxel_unknown_=false;
+  hits_unknown_side_=false;
+}
+
+void UnknownObjectVolumeIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void UnknownObjectVolumeIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  if( previous_voxel_unknown_ )
+  {
+    hits_unknown_side_ = true;
+  }
+  includeMeasurement(_to_measure);
+}
+
+void UnknownObjectVolumeIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ = getOccupancy(_to_measure);
+  if( isUnknownVoxel(p_occ) )
+  {
+    double vox_ig = calcIG(p_occ);
+    ig_ += p_vis_*vox_ig;
+  }
+  else
+    ig_ = 0;
+  p_vis_*=p_occ;
+}
+
+
+
+}
