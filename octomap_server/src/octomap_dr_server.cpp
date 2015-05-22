@@ -278,33 +278,29 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
 
   BOOST_FOREACH( std::string metric, _info.request->call.metric_names )
   {
-    if( metric=="NrOfUnknownVoxels" )
+    if( metric=="IgnorantTotalIG" )
     {
-      metrics.push_back( boost::shared_ptr<InformationMetric>( new NrOfUnknownVoxels() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new IgnorantTotalIG() ) );
     }
-    else if( metric=="AverageUncertainty" )
+    else if( metric=="OccupancyAwareTotalIG" )
     {
-      metrics.push_back( boost::shared_ptr<InformationMetric>( new AverageUncertainty() ) );
-    }
-    else if( metric=="AverageEndPointUncertainty" )
-    {
-      metrics.push_back( boost::shared_ptr<InformationMetric>( new AverageEndPointUncertainty() ) );
-    }
-    else if( metric=="UnknownObjectSideFrontier" )
-    {
-      metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectSideFrontier() ) );
-    }
-    else if( metric=="UnknownObjectVolumeFrontier" )
-    {
-      metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectVolumeFrontier() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new OccupancyAwareTotalIG() ) );
     }
     else if( metric=="ClassicFrontier" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new ClassicFrontier() ) );
     }
-    else if( metric=="EndNodeOccupancySum" )
+    else if( metric=="TotalUnknownIG" )
     {
-      metrics.push_back( boost::shared_ptr<InformationMetric>( new EndNodeOccupancySum() ) );
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalUnknownIG() ) );
+    }
+    else if( metric=="UnknownObjectSideFrontier" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectSideFrontier() ) );
+    }
+    else if( metric=="UnknownObjectVolumeIG" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new UnknownObjectVolumeIG() ) );
     }
     else if( metric=="TotalOccupancyCertainty" )
     {
@@ -313,6 +309,14 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     else if( metric=="TotalNrOfOccupieds" )
     {
       metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalNrOfOccupieds() ) );
+    }
+    else if( metric=="TotalNrOfFree" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalNrOfFree() ) );
+    }
+    else if( metric=="TotalEntropy" )
+    {
+      metrics.push_back( boost::shared_ptr<InformationMetric>( new TotalEntropy() ) );
     }
     else if( metric=="TotalNrOfNodes" )
     {
