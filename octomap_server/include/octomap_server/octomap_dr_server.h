@@ -155,7 +155,7 @@ protected:
   octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* octree_;
 };
 
-class IgnorantTotalIG: OctomapDRServer::InformationMetric
+class IgnorantTotalIG: public OctomapDRServer::InformationMetric
 {
 public:
   IgnorantTotalIG():ig_(0.0){};
@@ -189,7 +189,7 @@ private:
   void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
-class OccupancyAwareTotalIG: IgnorantTotalIG
+class OccupancyAwareTotalIG: public IgnorantTotalIG
 {
 public:
   OccupancyAwareTotalIG():ig_(0.0),p_vis_(1.0){};
@@ -235,7 +235,7 @@ private:
   bool already_counts_;
 };
 
-class TotalUnknownIG: IgnorantTotalIG
+class TotalUnknownIG: public IgnorantTotalIG
 {
 public:
   TotalUnknownIG():ig_(0.0),p_vis_(1.0),previous_voxel_free_(false),already_counts_(false){};
@@ -289,7 +289,7 @@ private:
   void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
 
-class UnknownObjectVolumeIG: IgnorantTotalIG
+class UnknownObjectVolumeIG: public IgnorantTotalIG
 {
 public:
   UnknownObjectVolumeIG():ig_(0.0),p_vis_(1.0),previous_voxel_unknown_(false),hits_unknown_side_(false){};
