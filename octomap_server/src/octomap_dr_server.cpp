@@ -977,11 +977,15 @@ void UnknownObjectVolumeIG::includeMeasurement( octomap::OcTreeKey& _to_measure 
   double p_occ = getOccupancy(_to_measure);
   if( isUnknownVoxel(p_occ) )
   {
+    previous_voxel_unknown_ = true;
     double vox_ig = calcIG(p_occ);
     ig_ += p_vis_*vox_ig;
   }
   else
+  {
+    previous_voxel_unknown_ = false;
     ig_ = 0;
+  }
   p_vis_*=p_occ;
 }
 
