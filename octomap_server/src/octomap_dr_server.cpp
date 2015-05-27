@@ -813,7 +813,7 @@ double IgnorantTotalIG::getInformation()
 
 void IgnorantTotalIG::makeReadyForNewRay()
 {
-  ig_=0;
+  //ig_=0;
 }
 
 void IgnorantTotalIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
@@ -840,7 +840,7 @@ double OccupancyAwareTotalIG::getInformation()
 
 void OccupancyAwareTotalIG::makeReadyForNewRay()
 {
-  ig_=0;
+  //ig_=0;
   p_vis_=1;
 }
 
@@ -869,7 +869,7 @@ double TotalUnknownIG::getInformation()
 
 void TotalUnknownIG::makeReadyForNewRay()
 {
-  ig_=0;
+  //ig_=0;
   p_vis_=1;
 }
 
@@ -952,7 +952,7 @@ double UnknownObjectVolumeIG::getInformation()
 
 void UnknownObjectVolumeIG::makeReadyForNewRay()
 {
-  ig_=0;
+  //ig_=0;
   p_vis_=1;
   previous_voxel_unknown_=false;
   hits_unknown_side_=false;
