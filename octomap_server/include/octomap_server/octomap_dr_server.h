@@ -238,7 +238,7 @@ private:
 class TotalUnknownIG: public IgnorantTotalIG
 {
 public:
-  TotalUnknownIG():ig_(0.0),p_vis_(1.0),previous_voxel_free_(false),already_counts_(false){};
+  TotalUnknownIG():ig_(0.0),current_ray_ig_(0.0),p_vis_(1.0),previous_voxel_free_(false),already_counts_(false){};
   inline std::string type()
   {
     return "TotalUnknownIG";
@@ -255,12 +255,18 @@ public:
    */
   virtual bool isFrontierPassRay( double _p_occ );
   
+  /**
+   * whtether the voxel is an unknown one or not
+   */
+  virtual bool isUnknown( double _p_occ );
+  
   static double unknown_p_prior_;
   static double unknown_lower_bound_;
   static double unknown_upper_bound_;
   
 private:
-  double ig_;
+  double ig_; //total information gain
+  double current_ray_ig_; //information gain for current ray
   double p_vis_;
   bool previous_voxel_free_;
   bool already_counts_;
@@ -292,7 +298,7 @@ private:
 class UnknownObjectVolumeIG: public IgnorantTotalIG
 {
 public:
-  UnknownObjectVolumeIG():ig_(0.0),p_vis_(1.0),previous_voxel_unknown_(false),hits_unknown_side_(false){};
+  UnknownObjectVolumeIG():ig_(0.0),current_ray_ig_(0.0),p_vis_(1.0),previous_voxel_unknown_(false),hits_unknown_side_(false){};
   inline std::string type()
   {
     return "UnknownObjectVolumeIG";
@@ -317,6 +323,7 @@ public:
   
 private:
   double ig_;
+  double current_ray_ig_;
   double p_vis_;
   bool previous_voxel_unknown_;
   bool hits_unknown_side_;
