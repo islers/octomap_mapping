@@ -628,6 +628,21 @@ void UnknownObjectVolumeFrontier::includeMeasurement( octomap::OcTreeKey& _to_me
   }
 }
 
+double ClassicFrontier::getOccupancy( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ;
+  octomap::ColorOcTreeNode* added = octree_->search(_to_measure);
+  if( added==NULL )
+  {
+    p_occ=IgnorantTotalIG::unknown_p_prior_; // default for unknown
+  }
+  else
+  {
+    p_occ = added->getOccupancy();
+  }
+  return p_occ;
+}
+
 double ClassicFrontier::getInformation()
 {
   return frontier_voxel_count_;
@@ -656,7 +671,7 @@ void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
   }
   else
   {
-    if( !octree_->isNodeOccupied( to_measure ) ) // frontier
+    if( getOccupancy(_to_measure)<=IgnorantTotalIG::unknown_lower_bound_ ) // frontier
     {
       previous_voxel_free_ = true;
     }

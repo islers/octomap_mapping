@@ -225,6 +225,12 @@ public:
   {
     return "ClassicFrontier";
   }
+  
+  /**
+   * returns the occupancy likelihodd for the voxel
+   */
+  virtual double getOccupancy( octomap::OcTreeKey& _to_measure );
+  
   double getInformation();
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
