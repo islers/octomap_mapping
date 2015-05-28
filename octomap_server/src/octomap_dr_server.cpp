@@ -895,7 +895,6 @@ void TotalUnknownIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure
   {
     ig_ += current_ray_ig_;
   }
-  includeMeasurement(_to_measure);
 }
 
 bool TotalUnknownIG::isFrontierPassRay( double _p_occ )
@@ -910,6 +909,7 @@ bool TotalUnknownIG::isFrontierPassRay( double _p_occ )
       already_counts_=true;
       return true;
     }
+    previous_voxel_free_ = false;
   }
   else if(_p_occ<=IgnorantTotalIG::unknown_lower_bound_ ) // if it is free
   {
@@ -941,7 +941,17 @@ void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
   if( isUnknown(p_occ) )
   {
     current_ray_ig_+=p_vis_*vox_ig;
+    previous_voxel_free_ = false;
   }
+  else if(_p_occ<=IgnorantTotalIG::unknown_lower_bound_ ) // if it is free
+  {
+    previous_voxel_free_ = true;
+  }
+  else
+  {
+    previous_voxel_free_ = false;
+  }
+  
   p_vis_*=p_occ;
 }
 
@@ -955,24 +965,8 @@ bool UnknownObjectVolumeIG::isUnknownVoxel( double _p_occ )
   return _p_occ<IgnorantTotalIG::unknown_upper_bound_ && _p_occ>IgnorantTotalIG::unknown_lower_bound_;
 }
 
-void UnknownObjectVolumeIG::updateUnknownSideHit( double _p_occ )
-{
-  if( isUnknownVoxel( _p_occ ) )
-  {
-    previous_voxel_unknown_ = true;
-  }
-  else
-  {
-    previous_voxel_unknown_ = false;
-  }
-}
-
 double UnknownObjectVolumeIG::getInformation()
 {
-  if( !hitsUnknownSide() )
-  {
-    return 0;
-  }
   return ig_;
 }
 
@@ -982,7 +976,6 @@ void UnknownObjectVolumeIG::makeReadyForNewRay()
   current_ray_ig_=0;
   p_vis_=1;
   previous_voxel_unknown_=false;
-  hits_unknown_side_=false;
 }
 
 void UnknownObjectVolumeIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
@@ -991,13 +984,15 @@ void UnknownObjectVolumeIG::includeRayMeasurement( octomap::OcTreeKey& _to_measu
 }
 
 void UnknownObjectVolumeIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
-{
+{  
   if( previous_voxel_unknown_ )
   {
-    hits_unknown_side_ = true;
+    double p_occ = getOccupancy(_to_measure);
+    double vox_ig = calcIG(p_occ);
+    current_ray_ig_ += p_vis_*vox_ig;
+    
     ig_+=current_ray_ig_;
   }
-  includeMeasurement(_to_measure);
 }
 
 void UnknownObjectVolumeIG::includeMeasurement( octomap::OcTreeKey& _to_measure )

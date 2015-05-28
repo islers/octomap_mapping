@@ -307,11 +307,6 @@ public:
   bool hitsUnknownSide();
   bool isUnknownVoxel( double _p_occ );
   
-  /**
-   * @arg _p_occ occupancy likelihood of the current voxel
-   */
-  void updateUnknownSideHit( double _p_occ );
-  
   virtual double getInformation();
   virtual void makeReadyForNewRay();
   virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
@@ -326,7 +321,6 @@ private:
   double current_ray_ig_;
   double p_vis_;
   bool previous_voxel_unknown_;
-  bool hits_unknown_side_;
   
   void includeMeasurement( octomap::OcTreeKey& _to_measure );
 };
