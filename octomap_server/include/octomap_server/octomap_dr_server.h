@@ -298,13 +298,12 @@ private:
 class UnknownObjectVolumeIG: public IgnorantTotalIG
 {
 public:
-  UnknownObjectVolumeIG():ig_(0.0),current_ray_ig_(0.0),p_vis_(1.0),previous_voxel_unknown_(false),hits_unknown_side_(false){};
+  UnknownObjectVolumeIG():ig_(0.0),current_ray_ig_(0.0),p_vis_(1.0),previous_voxel_unknown_(false){};
   inline std::string type()
   {
     return "UnknownObjectVolumeIG";
   }
   
-  bool hitsUnknownSide();
   bool isUnknownVoxel( double _p_occ );
   
   virtual double getInformation();

@@ -943,7 +943,7 @@ void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
     current_ray_ig_+=p_vis_*vox_ig;
     previous_voxel_free_ = false;
   }
-  else if(_p_occ<=IgnorantTotalIG::unknown_lower_bound_ ) // if it is free
+  else if(p_occ<=IgnorantTotalIG::unknown_lower_bound_ ) // if it is free
   {
     previous_voxel_free_ = true;
   }
@@ -953,11 +953,6 @@ void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
   }
   
   p_vis_*=p_occ;
-}
-
-bool UnknownObjectVolumeIG::hitsUnknownSide()
-{
-  return hits_unknown_side_;
 }
 
 bool UnknownObjectVolumeIG::isUnknownVoxel( double _p_occ )
