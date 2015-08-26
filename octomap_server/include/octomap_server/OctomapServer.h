@@ -66,20 +66,21 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
-#include <octomap/ColorOcTree.h>
-#include <octomap/ColorOcTreeStereo.h>
+#include <octomap/OcTree.h>
+#include <octomap/OcTreeStereo.h>
+#include <octomap_server/DROcTree.h>
 
 
 namespace octomap_server {
 class OctomapServer{
 
 public:
-  typedef pcl::PointCloud<pcl::PointXYZRGB> PCLPointCloud;
+  typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
   typedef octomap_msgs::GetOctomap OctomapSrv;
   typedef octomap_msgs::BoundingBoxQuery BBXSrv;
 
-  typedef octomap::ColorOcTree OcTreeT;
-  typedef octomap::ColorOcTreeStereo OcTreeStereoT;
+  typedef octomap::OcTree OcTreeT;
+  typedef octomap::DROcTree OcTreeStereoT;
 
   OctomapServer(ros::NodeHandle private_nh_ = ros::NodeHandle("~"));
   virtual ~OctomapServer();
@@ -103,7 +104,7 @@ protected:
   };
  
   /// Test if key is within update area of map (2D, ignores height)
-  inline bool isInUpdateBBX(const octomap::ColorOcTree::iterator& it) const{
+  inline bool isInUpdateBBX(const OcTreeStereoT::iterator& it) const{
     // 2^(tree_depth-depth) voxels wide:
     unsigned voxelWidth = (1 << (m_maxTreeDepth - it.getDepth()));
     octomap::OcTreeKey key = it.getIndexKey(); // lower corner of voxel
@@ -143,28 +144,28 @@ protected:
   virtual void handlePreNodeTraversal(const ros::Time& rostime);
 
   /// hook that is called when traversing all nodes of the updated Octree (does nothing here)
-  virtual void handleNode(const OcTreeT::iterator& it) {};
+  virtual void handleNode(const OcTreeStereoT::iterator& it) {};
 
   /// hook that is called when traversing all nodes of the updated Octree in the updated area (does nothing here)
-  virtual void handleNodeInBBX(const OcTreeT::iterator& it) {};
+  virtual void handleNodeInBBX(const OcTreeStereoT::iterator& it) {};
 
   /// hook that is called when traversing occupied nodes of the updated Octree
-  virtual void handleOccupiedNode(const OcTreeT::iterator& it);
+  virtual void handleOccupiedNode(const OcTreeStereoT::iterator& it);
 
   /// hook that is called when traversing occupied nodes in the updated area (updates 2D map projection here)
-  virtual void handleOccupiedNodeInBBX(const OcTreeT::iterator& it);
+  virtual void handleOccupiedNodeInBBX(const OcTreeStereoT::iterator& it);
 
   /// hook that is called when traversing free nodes of the updated Octree
-  virtual void handleFreeNode(const OcTreeT::iterator& it);
+  virtual void handleFreeNode(const OcTreeStereoT::iterator& it);
 
   /// hook that is called when traversing free nodes in the updated area (updates 2D map projection here)
-  virtual void handleFreeNodeInBBX(const OcTreeT::iterator& it);
+  virtual void handleFreeNodeInBBX(const OcTreeStereoT::iterator& it);
 
   /// hook that is called after traversing all nodes
   virtual void handlePostNodeTraversal(const ros::Time& rostime);
 
   /// updates the downprojected 2D map as either occupied or free
-  virtual void update2DMap(const OcTreeT::iterator& it, bool occupied);
+  virtual void update2DMap(const OcTreeStereoT::iterator& it, bool occupied);
 
   inline unsigned mapIdx(int i, int j) const{
     return m_gridmap.info.width*j + i;
@@ -209,7 +210,7 @@ protected:
   bool m_use_update_volume_z; // default:false
   
   //octomap::OcTree* m_octree;
-  octomap::OccupancyOcTreeBase<octomap::ColorOcTreeNode>* m_octree;
+  octomap::OccupancyOcTreeBase<octomap::DROcTreeNode>* m_octree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
