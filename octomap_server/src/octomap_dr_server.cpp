@@ -389,7 +389,7 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
   std::vector<double> information;
   BOOST_FOREACH( boost::shared_ptr<InformationMetric> metric, metrics )
   {
-    unsigned int voxelCount = metric->voxelCount();
+    unsigned int voxelCount = 1;//metric->voxelCount();
     if( voxelCount!=0 )
     {
         information.push_back( metric->getInformation()/voxelCount ); // using average information per voxel

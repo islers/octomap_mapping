@@ -3,7 +3,7 @@
 
 namespace octomap
 {
-  /*  DROcTreeNode::DROcTreeNode()
+    DROcTreeNode::DROcTreeNode()
     : OcTreeNode()
     , _occDist(-1.0)
     {}
@@ -33,5 +33,5 @@ namespace octomap
         if( _occDist==-1 )
             _occDist = occDist;
         _occDist = std::min(occDist,_occDist);
-    }*/
+    }
 }

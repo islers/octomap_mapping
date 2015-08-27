@@ -414,7 +414,7 @@ bool TotalNrOfOccupieds::isOccluded( octomap::DROcTreeNode* node )
     if( occ>=occupiedBorder_ || occ<emptyBorder_ ) // only unknown voxels may be occluded
         return false;
     
-    return false;//(node->occDist()!=-1);
+    return (node->occDist()!=-1);
 }
 
 double TotalNrOfOccupieds::getInformation()
@@ -660,7 +660,7 @@ void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
   else
   {
       p_occ = added->getOccupancy();
-      //isOccluded = (added->occDist() != -1);
+      isOccluded = (added->occDist() != -1);
   }
   
   double vox_ig = calcIG(p_occ);

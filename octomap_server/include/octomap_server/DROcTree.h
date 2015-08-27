@@ -6,7 +6,7 @@
 namespace octomap
 {
     // node definition
-    /*class DROcTreeNode: public OcTreeNode
+    class DROcTreeNode: public OcTreeNode
     {
     public:
         DROcTreeNode();
@@ -45,8 +45,8 @@ namespace octomap
         void updateOccDist( double occDist );
     protected:
         double _occDist; // if node is occluded this sets the shortest distance from an occupied node for which the occlusion was registered, -1 if not registered so far
-    };*/
-    typedef OcTreeNode DROcTreeNode;
+    };
+    //typedef OcTreeNode DROcTreeNode;
     
     // tree definition
     class DROcTree: public OccupancyOcTreeStereo<DROcTreeNode>

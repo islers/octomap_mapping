@@ -110,6 +110,7 @@ public:
   virtual void makeReadyForNewRay();
   virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void informAboutVoidRay(){}; // void rays not considered in this ig
   
   /**
    * whether the ray passed a frontier
@@ -155,6 +156,7 @@ public:
     virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
     virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
     virtual unsigned int voxelCount(){ return 1; } // averaging already included!
+    virtual void informAboutVoidRay(){} //void rays not considered
     
 protected:
     double includeMeasurement( octomap::OcTreeKey& _to_measure ); 
@@ -268,6 +270,7 @@ public:
   virtual void makeReadyForNewRay();
   virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void informAboutVoidRay(){} // not considered
     
 private:
   double ig_;
@@ -313,6 +316,8 @@ public:
   void makeReadyForNewRay();
   void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
   void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void informAboutVoidRay(){}
+  
 private:
   unsigned int surfaceVoxels_;
   bool rayAlreadyRegistered_;

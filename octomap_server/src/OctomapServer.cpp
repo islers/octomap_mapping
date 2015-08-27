@@ -456,7 +456,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
         updateMinKey(key, m_updateBBXMin);
         updateMaxKey(key, m_updateBBXMax);
       }
-      /*
+      
       // update occluded voxels distance information
       point3d new_end = sensorOrigin + currRay.normalized() * m_maxRange;
       if (m_octree->computeRayKeys(point, new_end, m_keyRay))
@@ -477,7 +477,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
                   ROS_WARN_STREAM("Voxel for distance update wasn't found!");
               }
           }
-      }*/
+      }
     }
     else
     {// ray longer than maxrange:; note: no occluded voxels created
