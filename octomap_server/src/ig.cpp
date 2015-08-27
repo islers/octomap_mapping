@@ -923,6 +923,95 @@ void VasquezGomezAreaFactor::setCoefficients( double alpha, double& a_f1, double
      d_f2 = ((3*alpha-1)/a_m1_3);
 }
 
+double DepthHypothesis::getInformation()
+{
+  return ig_;
+}
+
+void DepthHypothesis::makeReadyForNewRay()
+{
+  ig_current_ray_=0;
+  p_vis_=1;
+  passesOccluded_=false;
+}
+
+void DepthHypothesis::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+}
+
+void DepthHypothesis::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  includeMeasurement(_to_measure);
+  
+  if( passesOccluded_ )
+      ig_ = ig_current_ray_;
+}
+
+void DepthHypothesis::includeMeasurement( octomap::OcTreeKey& _to_measure )
+{
+  traversedVoxelCount_+=1;
+  double p_occ = getOccupancy(_to_measure);
+  double vox_ig = calcIG(p_occ);
+  ig_ += p_vis_*vox_ig;
+  p_vis_*=p_occ;
+}
+
+void DepthHypothesis::informAboutVoidRay()
+{
+    //void
+}
+
+double DepthHypothesis::getObjectLikelihood( double voxelDist )
+{
+    // two phase linear model
+    
+    double maxDepth = 20; // [cm]
+    double dropOffDist = 3; // [cm] dist from which likelihood starts to drop faster
+    double closeDropRate = 0.01; // [%/cm]
+    double voxelLength = 1; // [cm]
+    
+    double farDropRate = (1-closeDropRate*dropOffDist)/(maxDepth-dropOffDist);
+    
+    double metricDist = voxelLength*voxelDist;
+    
+    if( metricDist<=dropOffDist )
+    {
+        return (1-metricDist*closeDropRate);
+    }
+    else if( metricDist<=maxDepth )
+    {
+        return (1-dropOffDist*closeDropRate-farDropRate*(metricDist-dropOffDist));
+    }
+    else
+        return 0;
+}
+double DepthHypothesis::getOccupancy( octomap::OcTreeKey& _to_measure )
+{
+  double p_occ;
+  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  
+  if( added==NULL )
+  {
+      p_occ=unknown_p_prior_; // default for unobserved
+  }
+  else
+  {
+    double dist = added->occDist();
+    
+    if( dist!=-1 )
+    {
+        p_occ=getObjectLikelihood(dist);
+        passesOccluded_ = true;
+    }
+    else
+    {
+        p_occ = added->getOccupancy();
+    }
+  }
+  return p_occ;
+}
+
 double OccupiedPercentage::getInformation()
 {
     

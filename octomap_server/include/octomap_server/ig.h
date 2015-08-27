@@ -219,6 +219,40 @@ protected:
     double a_f2_occp_, b_f2_occp_, c_f2_occp_, d_f2_occp_;
 };
 
+
+/** IG using a object probability value based on a depth hypothesis
+ */
+class DepthHypothesis: public IgnorantTotalIG
+{
+public:
+  DepthHypothesis():ig_(0.0), ig_current_ray_(0), p_vis_(1.0), passesOccluded_(false){};
+  inline std::string type()
+  {
+    return "DepthHypothesis";
+  }
+  
+  virtual double getInformation();
+  virtual void makeReadyForNewRay();
+  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void informAboutVoidRay();
+  
+private:
+  double ig_;
+  double ig_current_ray_;
+  double p_vis_;
+  bool passesOccluded_;
+  
+  double getOccupancy( octomap::OcTreeKey& _to_measure );
+  
+  /** returns the likelihood of an occluded voxel to be part of the object,
+   * based on the hypothesis
+   */
+  double getObjectLikelihood( double voxelDist );
+  
+  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+};
+
 /** information metric for rays:
  * returns occplane percentage as defined by Vasquez et al.
  */
