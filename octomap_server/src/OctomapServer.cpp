@@ -28,6 +28,7 @@
  */
 
 #include <octomap_server/OctomapServer.h>
+#include <pcl/registration/icp.h>
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -70,6 +71,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_use_color(true),
   m_tfListener(ros::Duration(180))
 {
+    cloud_ = boost::shared_ptr<PCLPointCloud>( new PCLPointCloud );
+    
   ros::NodeHandle private_nh(private_nh_);
   private_nh.param("frame_id", m_worldFrameId, m_worldFrameId);
   private_nh.param("base_frame_id", m_baseFrameId, m_baseFrameId);
@@ -353,32 +356,74 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
       
     pcl::transformPointCloud(pc, pc, sensorToWorld);
     
-    pass_z.setInputCloud(pc.makeShared());
-    pass_z.filter(pc);
+    
+    pass_z.setInputCloud( pc.makeShared() );
+    pass_z.filter( pc);
 
     // just filter height range:
     if( m_use_update_volume_x )
     {
-      pass_x.setInputCloud(pc.makeShared());
+      pass_x.setInputCloud( pc.makeShared() );
       pass_x.filter(pc);
     }
     if( m_use_update_volume_y )
     {
-      pass_y.setInputCloud(pc.makeShared());
+      pass_y.setInputCloud( pc.makeShared() );
       pass_y.filter(pc);
     }
+    
+    
+    
+    PCLPointCloud icpFilteredNew;
+    
+    // use iterative closest points to register point cloud
+    if( cloud_->empty() )
+    {
+        ROS_INFO("Adding input cloud to empty - No ICP performed.");
+        (*cloud_) += pc;
+        icpFilteredNew = pc;
+        cloud_->header = pc.header;
+        icpFilteredNew.header = cloud_->header;
+    }
+    else
+    {
+        ROS_INFO("Perform ICP to add new point cloud.");
+        pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+        icp.setInputSource( pc.makeShared() );
+        icp.setInputTarget( cloud_ );
+        
+        icp.setMaxCorrespondenceDistance( 0.001 );
+        
+        ROS_INFO("Start ICP...");
+        icp.align( icpFilteredNew );
+        
+        if( icp.hasConverged() )
+        {
+            ROS_INFO_STREAM("ICP alignment succeeded!");
+            (*cloud_) += icpFilteredNew;
+        }
+        else
+        {
+            ROS_WARN_STREAM("ICP did not succeed! Still adding pcl...");
+            (*cloud_) += pc;
+            icpFilteredNew = pc;
+            icpFilteredNew.header = pc.header;
+        }
+    }
+    
+    
 
-    pc_nonground = pc;
+    /*pc_nonground = pc;
     // pc_nonground is empty without ground segmentation
     pc_ground.header = pc.header;
     pc_nonground.header = pc.header;
-    
+    */
     
     
   //}
 
 
-  insertScan(sensorToWorldTf.getOrigin(), orientation, pc_ground, pc_nonground);
+  insertScan(sensorToWorldTf.getOrigin(), orientation, pc_ground, icpFilteredNew);
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);

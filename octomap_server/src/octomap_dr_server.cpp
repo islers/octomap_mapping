@@ -90,6 +90,7 @@ OctomapDRServer::OctomapDRServer(ros::NodeHandle _private_nh)
   
   camera_info_subscriber_ = m_nh.subscribe(camera_info_topic_,1,&OctomapDRServer::cameraInfoCallback, this );
   view_information_server_ = m_nh.advertiseService("/dense_reconstruction/3d_model/information", &OctomapDRServer::informationService, this);
+  octomap_cleaner_ = m_nh.advertiseService("/dense_reconstruction/3d_model/clean", &OctomapDRServer::cleanOctomap, this );
   marker_visualizer_ = m_nh.advertise<visualization_msgs::Marker>("/dense_reconstruction/octomap/visualization", 10);
 }
 
@@ -198,6 +199,16 @@ bool OctomapDRServer::informationService( dense_reconstruction::ViewInformationR
   ROS_INFO("Service finished.");
   
   return true;
+}
+
+bool OctomapDRServer::cleanOctomap( dense_reconstruction::Booleans::Request& _reg, dense_reconstruction::Booleans::Response& _res )
+{
+    delete m_octree;
+    m_octree = new OcTreeStereoT(m_res, m_stereoErrorCoeff, m_maxRange);
+    
+    ROS_INFO("Recevied clean command and deleted the current octree.");
+    _res.out = true;
+    return true;
 }
 
 void OctomapDRServer::cameraInfoCallback( const sensor_msgs::CameraInfoConstPtr& _caminfo )

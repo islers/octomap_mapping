@@ -39,6 +39,7 @@ This file is part of dense_reconstruction, a ROS package for...well,
 #include <dense_reconstruction/ViewInformation.h>
 #include <dense_reconstruction/ViewInformationRequest.h>
 #include <dense_reconstruction/ViewInformationReturn.h>
+#include <dense_reconstruction/Booleans.h>
 #include <visualization_msgs/Marker.h>
 
 
@@ -55,12 +56,20 @@ public:
    */
   bool informationService( dense_reconstruction::ViewInformationReturn::Request& _req, dense_reconstruction::ViewInformationReturn::Response& _res );
   
+  /**
+   * clears the whole octomap, restarts
+   * ATTENTION doesn't work: there is already a working method & service in the parent class!
+   */
+  bool cleanOctomap( dense_reconstruction::Booleans::Request& _reg, dense_reconstruction::Booleans::Response& _res );
+  
   /// loads all necessary information about the camera from the camera info topic (default:"/camera/camera_info", can be defined using the 'camera_info_topic' parameter)
   void cameraInfoCallback( const sensor_msgs::CameraInfoConstPtr& _caminfo );
 private:
+    
   image_geometry::PinholeCameraModel cam_model_;
   
   ros::ServiceServer view_information_server_;
+  ros::ServiceServer octomap_cleaner_;
   ros::Subscriber camera_info_subscriber_;
   ros::Publisher marker_visualizer_;
   

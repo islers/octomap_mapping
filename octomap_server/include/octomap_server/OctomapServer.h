@@ -93,6 +93,9 @@ public:
   virtual bool openFile(const std::string& filename);
 
 protected:
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_; //! The complete registered cloud
+  
+    
   inline static void updateMinKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& min){
     for (unsigned i=0; i<3; ++i)
       min[i] = std::min(in[i], min[i]);
