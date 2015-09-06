@@ -354,6 +354,10 @@ void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure&
     {
         metrics.push_back( boost::shared_ptr<InformationMetric>( new OccupiedPercentage() ) );
     }
+    else if( metric=="DepthHypothesis" )
+    {
+        metrics.push_back( boost::shared_ptr<InformationMetric>( new DepthHypothesis() ) );
+    }
     metrics.back()->setOcTreeTarget(_info.octree);
   }
   
