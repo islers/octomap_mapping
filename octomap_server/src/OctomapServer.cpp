@@ -29,6 +29,7 @@
 
 #include <octomap_server/OctomapServer.h>
 #include <pcl/registration/icp.h>
+#include <pcl/filters/impl/filter.hpp>
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -69,7 +70,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_update_volume_min(-std::numeric_limits<double>::max(),-std::numeric_limits<double>::max(),-std::numeric_limits<double>::max()),
   m_update_volume_max(std::numeric_limits<double>::max(),std::numeric_limits<double>::max(),std::numeric_limits<double>::max()),
   m_use_color(true),
-  m_tfListener(ros::Duration(180))
+  m_tfListener(ros::Duration(180)),
+  m_use_icp(false)
 {
     cloud_ = boost::shared_ptr<PCLPointCloud>( new PCLPointCloud );
     
@@ -85,6 +87,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("occupancy_max_z", m_occupancyMaxZ,m_occupancyMaxZ);
   private_nh.param("min_x_size", m_minSizeX,m_minSizeX);
   private_nh.param("min_y_size", m_minSizeY,m_minSizeY);
+  
+  private_nh.param("use_icp", m_use_icp,m_use_icp);
 
   private_nh.param("filter_speckles", m_filterSpeckles, m_filterSpeckles);
   private_nh.param("filter_ground", m_filterGroundPlane, m_filterGroundPlane);
@@ -108,6 +112,24 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("compress_map", m_compressMap, m_compressMap);
   private_nh.param("incremental_2D_projection", m_incrementalUpdate, m_incrementalUpdate);
   
+  double minMaxTemp = m_update_volume_min.x();
+  private_nh.param("update_volume/min/x", minMaxTemp, minMaxTemp);
+  m_update_volume_min.x() = minMaxTemp;
+  minMaxTemp = m_update_volume_max.x();
+  private_nh.param("update_volume/max/x", minMaxTemp, minMaxTemp);
+  m_update_volume_max.x() = minMaxTemp;
+  minMaxTemp = m_update_volume_min.x();
+  private_nh.param("update_volume/min/y", minMaxTemp, minMaxTemp);
+  m_update_volume_min.y() = minMaxTemp;
+  minMaxTemp = m_update_volume_max.y();
+  private_nh.param("update_volume/max/y", minMaxTemp, minMaxTemp);
+  m_update_volume_max.y() = minMaxTemp;
+  minMaxTemp = m_update_volume_min.y();
+  private_nh.param("update_volume/min/z", minMaxTemp, minMaxTemp);
+  m_update_volume_min.z() = minMaxTemp;
+  minMaxTemp = m_update_volume_max.z();
+  private_nh.param("update_volume/max/z", minMaxTemp, minMaxTemp);
+  m_update_volume_max.z() = minMaxTemp;
   
   private_nh.param("publish_colors", m_use_color, m_use_color);
 
@@ -181,6 +203,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);	
   m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
+  m_fPCLPub = m_nh.advertise<sensor_msgs::PointCloud2>("dense_reconstruction/model/pointcloud", 1, m_latchedTopics);
 
   m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
   m_tfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSub, m_tfListener, m_worldFrameId, 5);
@@ -277,6 +300,14 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   //
   PCLPointCloud pc; // input cloud for filtering and ground-detection
   pcl::fromROSMsg(*cloud, pc);
+  
+  // short hack to get NAN's out -> couldn't find the removeNAN function in the library
+  pcl::PassThrough<pcl::PointXYZ> passer;
+  passer.setFilterFieldName("z");
+  passer.setFilterLimits(-100000000000, 100000000000 );
+  passer.setInputCloud( pc.makeShared() );
+  passer.filter( pc );
+  //pcl::removeNANFromPointCloud(pc,pc);
 
   tf::StampedTransform sensorToWorldTf;
   try {
@@ -296,19 +327,6 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   octomath::Vector3 orientation(sensorOrientation(0), sensorOrientation(1), sensorOrientation(2)); 
 
 
-  // set up filter for height range, also removes NANs:
-  pcl::PassThrough<pcl::PointXYZ> pass_z;
-  pass_z.setFilterFieldName("z");
-  pass_z.setFilterLimits(m_update_volume_min.z(), m_update_volume_max.z());
-  
-  pcl::PassThrough<pcl::PointXYZ> pass_x;
-  pass_x.setFilterFieldName("x");
-  pass_x.setFilterLimits(m_update_volume_min.x(), m_update_volume_max.x());
-  
-  pcl::PassThrough<pcl::PointXYZ> pass_y;
-  pass_y.setFilterFieldName("y");
-  pass_y.setFilterLimits(m_update_volume_min.y(), m_update_volume_max.y());
-
   PCLPointCloud pc_ground; // segmented ground plane
   PCLPointCloud pc_nonground; // everything else
 
@@ -325,61 +343,52 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
                         "You need to set the base_frame_id or disable filter_ground.");
     }
 
-
-    Eigen::Matrix4f sensorToBase, baseToWorld;
-    pcl_ros::transformAsMatrix(sensorToBaseTf, sensorToBase);
-    pcl_ros::transformAsMatrix(baseToWorldTf, baseToWorld);
-
-    // transform pointcloud from sensor frame to fixed robot frame
-    pcl::transformPointCloud(pc, pc, sensorToBase);
-    pass_z.setInputCloud(pc.makeShared());
-    pass_z.filter(pc);
-    if( m_use_update_volume_x )
-    {
-      pass_x.setInputCloud(pc.makeShared());
-      pass_x.filter(pc);
-    }
-    if( m_use_update_volume_y )
-    {
-      pass_y.setInputCloud(pc.makeShared());
-      pass_y.filter(pc);
-    }
-    filterGroundPlane(pc, pc_ground, pc_nonground);
-
-    // transform clouds to world frame for insertion
-    pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
-    pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
-  } else {*/
-    // directly transform to map frame:
-      
-      
-      
+    */
+  
     pcl::transformPointCloud(pc, pc, sensorToWorld);
     
+    // set up filter for height range, also removes NANs:
+    pcl::PassThrough<pcl::PointXYZ> pass_z;
+    pass_z.setFilterFieldName("z");
+    pass_z.setFilterLimits(m_update_volume_min.z(), m_update_volume_max.z());
+    
+    pcl::PassThrough<pcl::PointXYZ> pass_x;
+    pass_x.setFilterFieldName("x");
+    pass_x.setFilterLimits(m_update_volume_min.x(), m_update_volume_max.x());
+    
+    pcl::PassThrough<pcl::PointXYZ> pass_y;
+    pass_y.setFilterFieldName("y");
+    pass_y.setFilterLimits(m_update_volume_min.y(), m_update_volume_max.y());
+      
     
     pass_z.setInputCloud( pc.makeShared() );
     pass_z.filter( pc);
 
     // just filter height range:
-    if( m_use_update_volume_x )
+    if( true||m_use_update_volume_x )
     {
-      pass_x.setInputCloud( pc.makeShared() );
-      pass_x.filter(pc);
+        pass_x.setInputCloud( pc.makeShared() );
+        pass_x.filter(pc);
     }
-    if( m_use_update_volume_y )
+    if( true||m_use_update_volume_y )
     {
-      pass_y.setInputCloud( pc.makeShared() );
-      pass_y.filter(pc);
+        pass_y.setInputCloud( pc.makeShared() );
+        pass_y.filter(pc);
     }
+  
     
     
+      
     
     PCLPointCloud icpFilteredNew;
     
     // use iterative closest points to register point cloud
-    if( cloud_->empty() )
+    if( cloud_->empty() || !m_use_icp )
     {
-        ROS_INFO("Adding input cloud to empty - No ICP performed.");
+        if( cloud_->empty() && m_use_icp )
+            ROS_INFO("Adding input cloud to empty - No ICP performed.");
+        else
+            ROS_INFO("Integrating poitns without using ICP.");
         (*cloud_) += pc;
         icpFilteredNew = pc;
         cloud_->header = pc.header;
@@ -392,27 +401,27 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
         icp.setInputSource( pc.makeShared() );
         icp.setInputTarget( cloud_ );
         
-        icp.setMaxCorrespondenceDistance( 0.001 );
+        icp.setMaxCorrespondenceDistance( 0.0005 );
         
         ROS_INFO("Start ICP...");
+        ROS_INFO_STREAM("Input cloud has "<<pc.size()<<" points.");
+        ROS_INFO_STREAM("Current model features "<<cloud_->size()<<" points.");
         icp.align( icpFilteredNew );
         
         if( icp.hasConverged() )
         {
             ROS_INFO_STREAM("ICP alignment succeeded!");
-            (*cloud_) += icpFilteredNew;
         }
         else
         {
             ROS_WARN_STREAM("ICP did not succeed! Still adding pcl...");
-            (*cloud_) += pc;
             icpFilteredNew = pc;
             icpFilteredNew.header = pc.header;
         }
     }
     
-    
 
+    
     /*pc_nonground = pc;
     // pc_nonground is empty without ground segmentation
     pc_ground.header = pc.header;
@@ -423,13 +432,98 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   //}
 
 
+  /*PCLPointCloud nonground;
+  tf::Point sensorOrigin(0.005,0.005,0.055);
+  octomath::Vector3 sensorOrientation2(1,0,0);
+  pcl::PointXYZ sensorTarget(0.045,0.005,0.055);
+  m_maxRange = 0.07;*/
+  
+  //nonground.push_back(sensorTarget);
+  //nonground.push_back(sensorTarget2);
+  //nonground.push_back(sensorTarget3);
+  ROS_INFO_STREAM("Inserting pointcloud into octomap...");
   insertScan(sensorToWorldTf.getOrigin(), orientation, pc_ground, icpFilteredNew);
+  /*insertScan(sensorOrigin, sensorOrientation2, pc_ground, nonground);
+  
+  nonground.clear();
+  sensorOrigin = tf::Point(0.065,0.025,0.055);
+  sensorTarget=pcl::PointXYZ(0.065,0.005,0.055);
+  nonground.push_back(sensorTarget);
+  sensorTarget=pcl::PointXYZ(0.045,0.005,0.055);
+  nonground.push_back(sensorTarget);
+  sensorTarget=pcl::PointXYZ(0.035,0.005,0.055);
+  nonground.push_back(sensorTarget);
+  sensorTarget=pcl::PointXYZ(0.025,0.005,0.055);
+  nonground.push_back(sensorTarget);
+  insertScan(sensorOrigin, sensorOrientation2, pc_ground, nonground);
+  
+  ROS_ERROR_STREAM("Running test");
+  
+  std::vector<octomap::point3d> points;
+  for(unsigned int i=0;i<8;++i)
+  {
+      octomap::point3d p(0.005+i*0.01,0.005,0.055);
+      points.push_back(p);
+  }
+  
+  std::stringstream str;
+  for(unsigned int i=0;i<points.size();++i)
+  {
+      DROcTreeNode* node = m_octree->search(points[i]);
+      if(node!=NULL) 
+      {
+          if(!node->hasMeasurement())
+          {
+              str<<"x";
+              str<<"-d"<<node->occDist()<<"-";
+          }
+        str<<node->getOccupancy()<<"|";
+      }
+      else
+      {
+          ROS_ERROR_STREAM("Couldn't find voxel in map...");
+      }
+  }
+  ROS_ERROR_STREAM("Running test2");
+  ROS_INFO_STREAM(str.str());
+  
+  exit(1);*/
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
+  // save pointcloud internall
+  
+    pass_z.setInputCloud( icpFilteredNew.makeShared() );
+    pass_z.filter( icpFilteredNew);
+
+    // just filter height range:
+    if( true||m_use_update_volume_x )
+    {
+        pass_x.setInputCloud( icpFilteredNew.makeShared() );
+        pass_x.filter(icpFilteredNew);
+    }
+    if( true||m_use_update_volume_y )
+    {
+        pass_y.setInputCloud( icpFilteredNew.makeShared() );
+        pass_y.filter(icpFilteredNew);
+    }
+  
+  ROS_INFO_STREAM("After filtering a pointcloud with "<<icpFilteredNew<<" points will be inserted in PCL model.");
+  (*cloud_) += icpFilteredNew;
+  
+  publishFilteredPCL(cloud->header.stamp);
   publishAll(cloud->header.stamp);
-  ROS_INFO("Received cloud processed.");
+  
+  
+  //ROS_INFO("Received cloud processed.");
+  //ROS_INFO_STREAM("************************************* next run **********************************************");
+  //  PCLPointCloud nonground2;
+  //sensorTarget = pcl::PointXYZ(0.055,0.005,0.055);
+  
+  //nonground2.push_back(sensorTarget);
+  //insertScan(sensorOrigin/*sensorToWorldTf.getOrigin()*/, sensorOrientation2/*orientation*/, pc_ground, nonground2/*icpFilteredNew*/);
+  //exit(1);
 }
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::Vector3& sensorOrientation,
@@ -472,25 +566,36 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
   //ros::Time start = ros::Time::now();
   // all other points: free on ray, occupied on endpoint:
   //float unknownProb = logodds(0.5);
-  for (PCLPointCloud::const_iterator it = nonground.begin(); it != nonground.end(); ++it)
+  
+  ROS_INFO_STREAM("Calculating free and occupied updates, integrating occluded..., total number of "<<nonground.size()<<" points.");
+  unsigned int itCounter = 0;
+  for (PCLPointCloud::const_iterator it = nonground.begin(); it != nonground.end(); ++it, ++itCounter)
   {
     point3d point(it->x, it->y, it->z);
     // maxrange check
     point3d currRay = point - sensorOrigin;
-    if ((m_maxRange < 0.0) || (currRay.norm() <= m_maxRange) )
+    //ROS_ERROR_STREAM("ray length is "<<currRay.norm()<<".");
+    
+    if( itCounter%1==0 )
     {
-
+        ROS_INFO_STREAM("Current iteration: "<<itCounter<<"/"<<nonground.size()<<".");
+    }
+    
+    if ((m_maxRange < 0.0) || (currRay.norm() <= (m_maxRange+0.000001)) )
+    {
+      //ROS_INFO_STREAM("Doing update including the occupied!");
       // free cells
       if (m_octree->computeRayKeys(sensorOrigin, point, m_keyRay))
       {
         free_cells.insert(m_keyRay.begin(), m_keyRay.end());
+        //ROS_INFO_STREAM("Create ray of free voxels with "<<free_cells.size()<<" entries.");
       }
       // occupied endpoint
       OcTreeKey key;
       if (m_octree->coordToKeyChecked(point, key))
       {
         occupied_cells.insert(key);
-	
+	//ROS_INFO_STREAM("Adding occupied endpoint. Occupied cells array has now "<<occupied_cells.size()<<" entries.");
 	/*Eigen::Vector3i color;
 	const uint32_t rgb = *reinterpret_cast<const int*>(&(it->rgb));
 	color(0) = (rgb >> 16) & 0x0000ff;
@@ -506,26 +611,42 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       point3d new_end = sensorOrigin + currRay.normalized() * m_maxRange;
       if (m_octree->computeRayKeys(point, new_end, m_keyRay))
       { // directly process here since otherwise the distance information would have to be transferred.
-          KeyRay::iterator occ = m_keyRay.begin();
+          KeyRay::iterator occ = m_keyRay.begin(); // first point is the occupied one - skip it!
           KeyRay::iterator end = m_keyRay.end();
           occupiedCount+=m_keyRay.size();
-          for( unsigned int i=0; occ!=end; ++i, ++occ )
+          if(occ!=end)
           {
-              // calling base function, the 0 logodds value lets the occupancy probability untouched...
-              DROcTreeNode* voxel = m_octree->updateNode(*occ,(float)0,false);
-              if( voxel!=NULL )
-              {
-                  voxel->updateOccDist( i ); // we use the number of voxels passed on the ray as distance metric
-              }
-              else
-              {
-                  ROS_WARN_STREAM("Voxel for distance update wasn't found!");
-              }
+            for( unsigned int i=0; occ!=end; ++i, ++occ )
+            {
+                //ROS_INFO_STREAM("occupied update: "<<i<<".");
+                DROcTreeNode* voxel = m_octree->search(*occ);
+                                
+                if( voxel!=NULL )
+                {
+                    if( !voxel->hasMeasurement() )
+                    {
+                        //ROS_INFO_STREAM("Update occluded voxel without measurement");
+                        voxel->updateOccDist( i );
+                    }
+                }
+                else
+                {
+                        //ROS_INFO_STREAM("Create new occluded voxel");
+                    voxel = m_octree->updateNode(*occ, false, 0.1); //random distance
+                    //voxel = m_octree->updateNode(*occ,(float)0,false); // leads to crashes, don't know why (segfault)
+                    // the occupancy probability will be ignored during an actual update with the following call:
+                    voxel->updateHasMeasurement(false);
+                    voxel->updateOccDist( i );
+                }
+            }
           }
       }
     }
     else
-    {// ray longer than maxrange:; note: no occluded voxels created
+    {
+        //ROS_INFO_STREAM("Doing update without occupied!");
+        
+        // ray longer than maxrange:; note: no occluded voxels created
         point3d new_end = sensorOrigin + currRay.normalized() * m_maxRange;
         if (m_octree->computeRayKeys(sensorOrigin, new_end, m_keyRay))
         {
@@ -546,26 +667,102 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
   }
   //ros::Duration calc_time = ros::Time::now()-start;
   //ROS_INFO_STREAM("Average calculation time for processing each pcl point was: "<<calc_time.toSec()/nonground.size()<<" seconds.");
+  //ROS_INFO_STREAM("Nr. of free cells: "<<free_cells.size());
+  //ROS_INFO_STREAM("Nr. of occupied cells: "<<occupied_cells.size());
   
   if (m_stereoModel)
   {
     //ros::Time start2 = ros::Time::now();
     // insert data into tree  -----------------------
+      //ROS_INFO_STREAM("Update free voxels...");
+      ROS_INFO_STREAM("Integrating free updates...");
     for (KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end; ++it)
     {
       // mark cells only as free if not seen occupied in same cloud (against aliasing)
-      if (occupied_cells.find(*it) == occupied_cells.end()) // okay, that may be more proper, but boy, does that slow down the process...
+      if (occupied_cells.find(*it) == occupied_cells.end())
       {
         float d = fabs(((m_octree->keyToCoord(*it)) - sensorOrigin).dot(sensorOrientation));
-        m_octree->updateNode(*it, false, d);
+        
+        //m_octree->updateNode(*it, false, d);
+        
+        DROcTreeNode* voxel = m_octree->search(*it);
+      
+        if( voxel==NULL )
+        {
+            voxel = m_octree->updateNode(*it, false, d);
+            voxel->updateHasMeasurement(true);
+            //ROS_INFO_STREAM("Free update of nonexistent: Likelihood afterwards: "<<voxel->getOccupancy() );
+        }
+        else
+        {
+            //ROS_INFO_STREAM("Free update: Updating voxel that was already created.");
+            //bool hasDistance = (voxel->occDist()!=-1);
+            double occupancy = voxel->getOccupancy();
+            
+            OccupancyOcTreeStereo<DROcTreeNode>* myOcto = static_cast<OccupancyOcTreeStereo<DROcTreeNode>*>(m_octree);
+            //ROS_INFO_STREAM("d = "<<d);
+            float logOdds = myOcto->getLogOdds(false,d);
+            //ROS_INFO_STREAM("logOdds = "<<logOdds);
+            
+            if( !voxel->hasMeasurement() )
+            {
+                //ROS_INFO_STREAM("Free update without measurement: Input likelihood was "<<occupancy<<".");
+                float logOddsFirstMiss = octomap::logodds(m_probMiss);
+                voxel->setLogOdds(logOddsFirstMiss); // in current stereo implementation not the stereo octo likelihood is used at node creation but the hit likelihood! (->bug!?)
+                voxel->updateHasMeasurement(true);
+                //ROS_INFO_STREAM("Free update of existent without measurement: Input likelihood after is "<<voxel->getOccupancy()<<".");
+            }
+            else
+            {
+                //m_octree->updateNode(*it, false, d);
+                //ROS_INFO_STREAM("Free update with measurement: Input likelihood was "<<occupancy<<".");
+                voxel->addValue(logOdds);
+                voxel->updateHasMeasurement(true);
+                //ROS_INFO_STREAM("Free update of existent with measurement: Likelihood afterwards: "<<voxel->getOccupancy() );
+            }
+        }
       }
     }
-    
+    ROS_INFO_STREAM("Integrating occupied updates...");
+      //ROS_INFO_STREAM("Update occupied voxels...");
     //std::vector<Eigen::Vector3i>::iterator color_it = occupied_cells_colors.begin();
     for (KeySet::iterator it = occupied_cells.begin(); it != occupied_cells.end(); ++it/*, ++color_it*/)
     {
       float d = fabs(((m_octree->keyToCoord(*it)) - sensorOrigin).dot(sensorOrientation));
-      m_octree->updateNode(*it, true, d);
+      
+      DROcTreeNode* voxel = m_octree->search(*it);
+      
+      if( voxel==NULL )
+      {
+          voxel = m_octree->updateNode(*it, true, d);
+          voxel->updateHasMeasurement(true);
+                //ROS_INFO_STREAM("Occupied update of nonexistent: Input likelihood after is "<<voxel->getOccupancy()<<".");
+      }
+      else
+      {
+        //bool hasDistance = (voxel->occDist()!=-1);
+        double occupancy = voxel->getOccupancy();
+        
+        OccupancyOcTreeStereo<DROcTreeNode>* myOcto = static_cast<OccupancyOcTreeStereo<DROcTreeNode>*>(m_octree);
+        float logOdds = myOcto->getLogOdds(true,d);
+        
+        if( !voxel->hasMeasurement() )
+        {
+            //ROS_INFO_STREAM("Occupied update, extistent without measurement: Input likelihood was "<<occupancy<<".");
+            float logOddsFirstHit = octomap::logodds(m_probHit);
+            voxel->setLogOdds(logOddsFirstHit); // in current stereo implementation not the stereo octo likelihood is used at node creation but the hit likelihood! (->bug!?)
+            voxel->updateHasMeasurement(true);
+            //ROS_INFO_STREAM("Occupied update, existent without measurement: Input likelihood after is "<<voxel->getOccupancy()<<".");
+        }
+        else
+        {
+                //ROS_INFO_STREAM("Occupied update, existent with measurement: Doing regular update. Previous likelihood: "<<occupancy);
+            voxel->addValue(logOdds);
+            voxel->updateHasMeasurement(true);
+            //m_octree->updateNode(*it, true, d);
+                //ROS_INFO_STREAM("Occupied update, esistent with measurement: Likelihood afterwards: "<<voxel->getOccupancy() );
+        }
+      }
       
       /*OcTreeStereo* octree = dynamic_cast<ColorOcTreeStereo*>(m_octree);
       char r = (*color_it)(0);
@@ -575,6 +772,8 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       //n->setColor(r,g,b);
       //octree->averageNodeColor( *it, r, g, b );
     }
+    
+      //ROS_INFO_STREAM("Occupied update done...");
     //ros::Duration calc_time2 = ros::Time::now()-start2;
     //ROS_INFO_STREAM("Average calculation time for processing each pcl point was: "<<calc_time2.toSec()/(free_cells.size()+occupied_cells.size())<<" seconds.");
   }
@@ -940,6 +1139,44 @@ bool OctomapServer::resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Res
   m_fmarkerPub.publish(freeNodesVis);
 
   return true;
+}
+
+void OctomapServer::publishFilteredPCL(const ros::Time& rostime) const
+{
+    ROS_INFO_STREAM("Publishing model cloud with "<<cloud_->size()<<" points.");
+    
+    PCLPointCloud filteredPCL;
+    for( PCLPointCloud::const_iterator it = cloud_->begin(); it != cloud_->end(); ++it )
+    {
+        point3d point(it->x, it->y, it->z);
+        OcTreeKey key;
+        if( m_octree->coordToKeyChecked(point,key) )
+        {
+            DROcTreeNode* voxel = m_octree->search(key);
+            if( voxel!=NULL )
+            {
+                //ROS_INFO_STREAM("Voxel found.");
+                if( voxel->getOccupancy()>=0.6 ) // TODO don't use fixed occupancy threshold->parameter!
+                {
+                    //ROS_INFO_STREAM("Voxel found, add it.");
+                    filteredPCL.push_back(*it);
+                }
+                //else
+                    //ROS_INFO_STREAM("Voxel not occupied.");
+            }
+        }
+    }
+    
+    sensor_msgs::PointCloud2 pclMsg;
+    filteredPCL.header = cloud_->header;
+    
+    ROS_INFO_STREAM("PCL published features "<<filteredPCL.size()<<" points after filtering for empty voxels.");
+    pcl::toROSMsg( (filteredPCL), pclMsg );
+    pclMsg.header.stamp = rostime;
+    pclMsg.header.frame_id = "dr_origin";
+    ROS_INFO_STREAM("Its header is "<<pclMsg.header);
+    
+    m_fPCLPub.publish(pclMsg);
 }
 
 void OctomapServer::publishBinaryOctoMap(const ros::Time& rostime) const{

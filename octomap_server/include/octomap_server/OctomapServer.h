@@ -118,6 +118,10 @@ protected:
   }
 
   void reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level);
+  
+  /** Publishes all points from the internal pointcloud that lie inside an occupied voxel
+   */
+  void publishFilteredPCL(const ros::Time& rostime = ros::Time::now()) const;
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishAll(const ros::Time& rostime = ros::Time::now());
@@ -197,7 +201,7 @@ protected:
 
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
-  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub;
+  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_fPCLPub;
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
@@ -239,6 +243,8 @@ protected:
   double m_probMiss;
   double m_thresMin;
   double m_thresMax;
+  
+  bool m_use_icp;
 
   double m_pointcloudMinZ;
   double m_pointcloudMaxZ;

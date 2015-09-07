@@ -410,11 +410,7 @@ bool TotalNrOfOccupieds::isEmpty( octomap::DROcTreeNode* node )
 
 bool TotalNrOfOccupieds::isOccluded( octomap::DROcTreeNode* node )
 {
-    double occ = node->getOccupancy();
-    if( occ>=occupiedBorder_ || occ<emptyBorder_ ) // only unknown voxels may be occluded
-        return false;
-    
-    return (node->occDist()!=-1);
+    return !node->hasMeasurement() && (node->occDist()!=-1);
 }
 
 double TotalNrOfOccupieds::getInformation()
@@ -485,7 +481,7 @@ double TotalNrOfNodes::getInformation()
 }
 
 // ATTENTION: It is extremely important, that these values are matched to the octomap update likelihoods!
-double IgnorantTotalIG::unknown_p_prior_ = 0.3; //0.2
+double IgnorantTotalIG::unknown_p_prior_ = 0.5; //0.2
 double IgnorantTotalIG::unknown_lower_bound_ = 0.2; //0.15
 double IgnorantTotalIG::unknown_upper_bound_ = 0.8; //0.8
 unsigned int IgnorantTotalIG::voxels_in_void_ray_ = 1.0/0.01; // approximated with max ray range/voxel size -> overestimated number of voxels on ray - therefore underestimates the average ig
@@ -508,6 +504,10 @@ double IgnorantTotalIG::getOccupancy( octomap::OcTreeKey& _to_measure )
 double IgnorantTotalIG::calcIG( double _p_occ )
 {
   double p_free = 1-_p_occ;
+  if(_p_occ==0 || p_free==0)
+  {
+      return 0;
+  }
   double vox_ig = -_p_occ*log(_p_occ)-p_free*log(p_free);
   return vox_ig;
 }
@@ -864,10 +864,19 @@ bool VasquezGomezAreaFactor::includeMeasurement( octomap::OcTreeKey& _to_measure
     if( added==NULL )
     {
         occ=unknown_p_prior_; // default for unknown
+        return false;
     }
     else
     {
         occ = added->getOccupancy();
+    }
+    
+    if( !added->hasMeasurement() && added->occDist()!=-1 )
+    {
+        ++occplaneCount_;
+        rayIsAlreadyRegistered_ = true;
+        //ROS_ERROR_STREAM("Got an occplane voxel!");
+        return true;
     }
     
     if( occ >= unknown_upper_bound_ ) // voxel is occupied
@@ -882,21 +891,6 @@ bool VasquezGomezAreaFactor::includeMeasurement( octomap::OcTreeKey& _to_measure
     }
     else if( occ > unknown_lower_bound_ ) // voxel is unknown
     {
-        if( occ==0.5 )
-        {
-            bool isOccluded = false;//(added->occDist()!=-1);
-            if( isOccluded /*&& previousVoxelFree_*/ ) // Note: Occplane voxels are actually defined to be at the border to free space. This does however lead to problems if space around the object is not freed quickly with scans, for instance because no background is observed that leads to the registration of rays that do not hit the object
-            {
-                ++occplaneCount_;
-                rayIsAlreadyRegistered_ = true;
-                //ROS_ERROR_STREAM("Got an occplane voxel!");
-                return true;
-            }
-            if( !isOccluded ) // voxel was not set as occluded - but that could happen later, therefore don't register
-            {
-                //++unobservedCount_;
-            }
-        }
         previousVoxelFree_ = false;
         
     }
@@ -930,9 +924,6 @@ double DepthHypothesis::getInformation()
 
 void DepthHypothesis::makeReadyForNewRay()
 {
-  ig_current_ray_=0;
-  p_vis_=1;
-  passesOccluded_=false;
 }
 
 void DepthHypothesis::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
@@ -943,13 +934,21 @@ void DepthHypothesis::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
 void DepthHypothesis::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
 {
   includeMeasurement(_to_measure);
-  
-  if( passesOccluded_ )
-      ig_ = ig_current_ray_;
 }
 
 void DepthHypothesis::includeMeasurement( octomap::OcTreeKey& _to_measure )
 {
+    octomap::DROcTreeNode* added = octree_->search(_to_measure);
+    
+    if(added!=NULL)
+    {
+        double dist = added->occDist();
+        if( !added->hasMeasurement() && dist>0 )
+        {
+            ig_+=dist;
+        }
+    }
+    return;
   traversedVoxelCount_+=1;
   double p_occ = getOccupancy(_to_measure);
   double vox_ig = calcIG(p_occ);
@@ -1015,7 +1014,7 @@ double DepthHypothesis::getOccupancy( octomap::OcTreeKey& _to_measure )
 double OccupiedPercentage::getInformation()
 {
     
-    double voxelSum = occupiedCount_ + occplaneCount_ + unobservedCount_;
+    double voxelSum = occupiedCount_ + occplaneCount_;// + unobservedCount_;
 
     if( voxelSum==0 )
         return 0;
