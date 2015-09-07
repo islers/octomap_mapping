@@ -576,10 +576,10 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
     point3d currRay = point - sensorOrigin;
     //ROS_ERROR_STREAM("ray length is "<<currRay.norm()<<".");
     
-    if( itCounter%1==0 )
+    /*if( itCounter%1==1000 )
     {
         ROS_INFO_STREAM("Current iteration: "<<itCounter<<"/"<<nonground.size()<<".");
-    }
+    }*/
     
     if ((m_maxRange < 0.0) || (currRay.norm() <= (m_maxRange+0.000001)) )
     {

@@ -146,7 +146,7 @@ private:
 class AverageEntropy: public IgnorantTotalIG
 {
 public:
-    AverageEntropy(): totalEntropy_(0), voxelCount_(0){};
+    AverageEntropy(): totalEntropy_(0), voxelCount_(0),totalIG_(0),totalVoxelCount_(0){};
     inline std::string type()
     {
         return "AverageEntropy";
@@ -162,6 +162,8 @@ protected:
     double includeMeasurement( octomap::OcTreeKey& _to_measure ); 
     double totalEntropy_;
     unsigned int voxelCount_;
+    double totalIG_;
+    unsigned int totalVoxelCount_;
 };
 
 /** information metric for rays:
@@ -220,7 +222,7 @@ protected:
 };
 
 
-/** IG using a object probability value based on a depth hypothesis
+/** IG using an object probability value based on a depth hypothesis
  */
 class DepthHypothesis: public IgnorantTotalIG
 {
