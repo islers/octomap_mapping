@@ -481,7 +481,7 @@ double TotalNrOfNodes::getInformation()
 }
 
 // ATTENTION: It is extremely important, that these values are matched to the octomap update likelihoods!
-double IgnorantTotalIG::unknown_p_prior_ = 0.5; //0.2
+double IgnorantTotalIG::unknown_p_prior_ = 0.5; //0.3
 double IgnorantTotalIG::unknown_lower_bound_ = 0.2; //0.15
 double IgnorantTotalIG::unknown_upper_bound_ = 0.8; //0.8
 unsigned int IgnorantTotalIG::voxels_in_void_ray_ = 1.0/0.01; // approximated with max ray range/voxel size -> overestimated number of voxels on ray - therefore underestimates the average ig
@@ -938,6 +938,7 @@ void DepthHypothesis::includeEndPointMeasurement( octomap::OcTreeKey& _to_measur
 
 void DepthHypothesis::includeMeasurement( octomap::OcTreeKey& _to_measure )
 {
+  traversedVoxelCount_+=1;
     octomap::DROcTreeNode* added = octree_->search(_to_measure);
     
     if(added!=NULL)
@@ -949,11 +950,6 @@ void DepthHypothesis::includeMeasurement( octomap::OcTreeKey& _to_measure )
         }
     }
     return;
-  traversedVoxelCount_+=1;
-  double p_occ = getOccupancy(_to_measure);
-  double vox_ig = calcIG(p_occ);
-  ig_ += p_vis_*vox_ig;
-  p_vis_*=p_occ;
 }
 
 void DepthHypothesis::informAboutVoidRay()

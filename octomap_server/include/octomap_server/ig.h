@@ -225,7 +225,8 @@ protected:
 class DepthHypothesis: public IgnorantTotalIG
 {
 public:
-  DepthHypothesis():ig_(0.0), ig_current_ray_(0), p_vis_(1.0), passesOccluded_(false){};
+  DepthHypothesis()
+  :maxIGperVox_(150), ig_(0.0), ig_current_ray_(0), p_vis_(1.0), passesOccluded_(false){};
   inline std::string type()
   {
     return "DepthHypothesis";
@@ -238,6 +239,8 @@ public:
   virtual void informAboutVoidRay();
   
 private:
+  double maxIGperVox_;
+  
   double ig_;
   double ig_current_ray_;
   double p_vis_;
