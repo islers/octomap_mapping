@@ -707,7 +707,11 @@ void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
 
 double AverageEntropy::getInformation()
 {
-    return totalIG_/totalVoxelCount_;
+  if( totalVoxelCount_==0 )
+  {
+    return 0;
+  }
+  return totalIG_/totalVoxelCount_;
 }
 
 void AverageEntropy::makeReadyForNewRay()

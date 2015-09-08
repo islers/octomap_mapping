@@ -198,10 +198,10 @@ protected:
              || oldMapInfo.origin.position.x != newMapInfo.origin.position.x
              || oldMapInfo.origin.position.y != newMapInfo.origin.position.y);
   }
-
+  
   static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
-  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_fPCLPub;
+  ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub, m_fPCLPub, m_u20Vox, m_u40Vox, mu60Vox, mu80Vox, mOccludedVox;
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;

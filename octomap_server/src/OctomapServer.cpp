@@ -198,6 +198,11 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
     ROS_INFO("Publishing non-latched (topics are only prepared as needed, will only be re-published on map change");
 
   m_markerPub = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
+  m_u20Vox = m_nh.advertise<visualization_msgs::MarkerArray>("voxels20", 1, m_latchedTopics);
+  m_u40Vox = m_nh.advertise<visualization_msgs::MarkerArray>("voxels40", 1, m_latchedTopics);
+  mu60Vox = m_nh.advertise<visualization_msgs::MarkerArray>("voxels60", 1, m_latchedTopics);
+  mu80Vox = m_nh.advertise<visualization_msgs::MarkerArray>("voxels80", 1, m_latchedTopics);
+  mOccludedVox = m_nh.advertise<visualization_msgs::MarkerArray>("voxels_occluded", 1, m_latchedTopics);
   m_binaryMapPub = m_nh.advertise<Octomap>("octomap_binary", 1, m_latchedTopics);
   m_fullMapPub = m_nh.advertise<Octomap>("octomap_full", 1, m_latchedTopics);
   m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
@@ -361,7 +366,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_y.setFilterLimits(m_update_volume_min.y(), m_update_volume_max.y());
       
     
-    pass_z.setInputCloud( pc.makeShared() );
+    /*pass_z.setInputCloud( pc.makeShared() );
     pass_z.filter( pc);
 
     // just filter height range:
@@ -374,7 +379,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     {
         pass_y.setInputCloud( pc.makeShared() );
         pass_y.filter(pc);
-    }
+    }*/
   
     
     
@@ -862,6 +867,14 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   // each array stores all cubes of a different size, one for each depth level:
   occupiedNodesVis.markers.resize(m_treeDepth+1);
 
+  visualization_msgs::MarkerArray nodesOccluded, nodes20, nodes40, nodes60, nodes80;
+  nodesOccluded.markers.resize(m_treeDepth+1);
+  nodes20.markers.resize(m_treeDepth+1);
+  nodes40.markers.resize(m_treeDepth+1);
+  nodes60.markers.resize(m_treeDepth+1);
+  nodes80.markers.resize(m_treeDepth+1);
+  
+  
   // init pointcloud:
   pcl::PointCloud<pcl::PointXYZ> pclCloud;
 
@@ -878,6 +891,69 @@ void OctomapServer::publishAll(const ros::Time& rostime){
     handleNode(it);
     if (inUpdateBBX)
       handleNodeInBBX(it);
+    
+    
+    double size = it.getSize();
+    double x = it.getX();
+    double y = it.getY();
+    double z = it.getZ();
+    
+    octomap::DROcTreeNode* thenode = m_octree->search(x,y,z,size);
+    if( thenode!=NULL )
+    {
+	double size = it.getSize();
+        double x = it.getX();
+        double y = it.getY();
+	
+	geometry_msgs::Point cubeCenter;
+	cubeCenter.x = x;
+	cubeCenter.y = y;
+	cubeCenter.z = z;
+	unsigned idx = it.getDepth();
+	std_msgs::ColorRGBA color;
+	
+	if( !thenode->hasMeasurement() )
+	{
+	  color.r = 200/256;
+	  color.g = 70/256;
+	  color.b = 20/256;
+	  nodesOccluded.markers[idx].points.push_back(cubeCenter);
+	  nodesOccluded.markers[idx].colors.push_back(color);
+	}
+	else if( thenode->getOccupancy()<0.2 )
+	{
+	  color.r = 50/256;
+	  color.g = 20/256;
+	  color.b = 230/256;
+	  nodes20.markers[idx].points.push_back(cubeCenter);
+	  nodes20.markers[idx].colors.push_back(color);
+	}
+	else if( thenode->getOccupancy()<0.4 )
+	{
+	  color.r = 110/256;
+	  color.g = 20/256;
+	  color.b = 230/256;
+	  nodes40.markers[idx].points.push_back(cubeCenter);
+	  nodes40.markers[idx].colors.push_back(color);
+	}
+	else if( thenode->getOccupancy()<0.6 )
+	{
+	  color.r = 170/256;
+	  color.g = 20/256;
+	  color.b = 230/256;
+	  nodes60.markers[idx].points.push_back(cubeCenter);
+	  nodes60.markers[idx].colors.push_back(color);
+	}
+	else if( thenode->getOccupancy()<0.8 )
+	{
+	  color.r = 230/256;
+	  color.g = 20/256;
+	  color.b = 230/256;
+	  nodes80.markers[idx].points.push_back(cubeCenter);
+	  nodes80.markers[idx].colors.push_back(color);
+	}
+	
+    }
 
     if (m_octree->isNodeOccupied(*it)){
       double z = it.getZ();
@@ -975,7 +1051,115 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   // call post-traversal hook:
   handlePostNodeTraversal(rostime);
 
-  // finish MarkerArray:
+  for (unsigned i= 0; i < nodesOccluded.markers.size(); ++i){
+      double size = m_octree->getNodeSize(i);
+
+      nodesOccluded.markers[i].header.frame_id = m_worldFrameId;
+      nodesOccluded.markers[i].header.stamp = rostime;
+      nodesOccluded.markers[i].ns = "map";
+      nodesOccluded.markers[i].id = i;
+      nodesOccluded.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
+      nodesOccluded.markers[i].scale.x = size;
+      nodesOccluded.markers[i].scale.y = size;
+      nodesOccluded.markers[i].scale.z = size;
+      nodesOccluded.markers[i].color = m_color;
+
+
+      if (nodesOccluded.markers[i].points.size() > 0)
+        nodesOccluded.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        nodesOccluded.markers[i].action = visualization_msgs::Marker::DELETE;
+    }
+
+    mOccludedVox.publish(nodesOccluded);
+  for (unsigned i= 0; i < nodes20.markers.size(); ++i){
+      double size = m_octree->getNodeSize(i);
+
+      nodes20.markers[i].header.frame_id = m_worldFrameId;
+      nodes20.markers[i].header.stamp = rostime;
+      nodes20.markers[i].ns = "map";
+      nodes20.markers[i].id = i;
+      nodes20.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
+      nodes20.markers[i].scale.x = size;
+      nodes20.markers[i].scale.y = size;
+      nodes20.markers[i].scale.z = size;
+      nodes20.markers[i].color = m_color;
+
+
+      if (nodes20.markers[i].points.size() > 0)
+        nodes20.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        nodes20.markers[i].action = visualization_msgs::Marker::DELETE;
+    }
+
+    m_u20Vox.publish(nodes20);
+  for (unsigned i= 0; i < nodes40.markers.size(); ++i){
+      double size = m_octree->getNodeSize(i);
+
+      nodes40.markers[i].header.frame_id = m_worldFrameId;
+      nodes40.markers[i].header.stamp = rostime;
+      nodes40.markers[i].ns = "map";
+      nodes40.markers[i].id = i;
+      nodes40.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
+      nodes40.markers[i].scale.x = size;
+      nodes40.markers[i].scale.y = size;
+      nodes40.markers[i].scale.z = size;
+      nodes40.markers[i].color = m_color;
+
+
+      if (nodes40.markers[i].points.size() > 0)
+        nodes40.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        nodes40.markers[i].action = visualization_msgs::Marker::DELETE;
+    }
+
+    m_u40Vox.publish(nodes40);
+    
+  for (unsigned i= 0; i < nodes60.markers.size(); ++i){
+      double size = m_octree->getNodeSize(i);
+
+      nodes60.markers[i].header.frame_id = m_worldFrameId;
+      nodes60.markers[i].header.stamp = rostime;
+      nodes60.markers[i].ns = "map";
+      nodes60.markers[i].id = i;
+      nodes60.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
+      nodes60.markers[i].scale.x = size;
+      nodes60.markers[i].scale.y = size;
+      nodes60.markers[i].scale.z = size;
+      nodes60.markers[i].color = m_color;
+
+
+      if (nodes60.markers[i].points.size() > 0)
+        nodes60.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        nodes60.markers[i].action = visualization_msgs::Marker::DELETE;
+    }
+
+    mu60Vox.publish(nodes60);
+    
+  for (unsigned i= 0; i < nodes80.markers.size(); ++i){
+      double size = m_octree->getNodeSize(i);
+
+      nodes80.markers[i].header.frame_id = m_worldFrameId;
+      nodes80.markers[i].header.stamp = rostime;
+      nodes80.markers[i].ns = "map";
+      nodes80.markers[i].id = i;
+      nodes80.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
+      nodes80.markers[i].scale.x = size;
+      nodes80.markers[i].scale.y = size;
+      nodes80.markers[i].scale.z = size;
+      nodes80.markers[i].color = m_color;
+
+
+      if (nodes80.markers[i].points.size() > 0)
+        nodes80.markers[i].action = visualization_msgs::Marker::ADD;
+      else
+        nodes80.markers[i].action = visualization_msgs::Marker::DELETE;
+    }
+
+    mu80Vox.publish(nodes80);
+
+  // finish additional markers:
   if (publishMarkerArray){
     for (unsigned i= 0; i < occupiedNodesVis.markers.size(); ++i){
       double size = m_octree->getNodeSize(i);
@@ -999,7 +1183,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 
     m_markerPub.publish(occupiedNodesVis);
   }
-
 
   // finish FreeMarkerArray:
   if (publishFreeMarkerArray){
