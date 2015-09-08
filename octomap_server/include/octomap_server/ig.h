@@ -219,6 +219,8 @@ protected:
     double a_f2_occu_, b_f2_occu_, c_f2_occu_, d_f2_occu_;
     double a_f1_occp_, b_f1_occp_;
     double a_f2_occp_, b_f2_occp_, c_f2_occp_, d_f2_occp_;
+    
+    bool noKnownVoxelSoFar_;
 };
 
 

@@ -776,6 +776,7 @@ VasquezGomezAreaFactor::VasquezGomezAreaFactor()
                     b_f2_occp_,
                     c_f2_occp_,
                     d_f2_occp_ );
+    noKnownVoxelSoFar_ = true;
 }
     
 unsigned int VasquezGomezAreaFactor::occplanePercCount=0;
@@ -811,6 +812,7 @@ void VasquezGomezAreaFactor::makeReadyForNewRay()
 {
     previousVoxelFree_ = true;
     rayIsAlreadyRegistered_ = false;
+    noKnownVoxelSoFar_ = true;
 }
 
 void VasquezGomezAreaFactor::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
@@ -896,6 +898,15 @@ bool VasquezGomezAreaFactor::includeMeasurement( octomap::OcTreeKey& _to_measure
     if( added==NULL )
     {
         occ=unknown_p_prior_; // default for unknown
+        if( noKnownVoxelSoFar_ )
+        {
+            previousVoxelFree_ = true; // treat unknown at beginning of ray, starting from sensor position as p_free
+        }
+        else
+        {
+            previousVoxelFree_ = false; // treat unknown at beginning of ray, starting from sensor position as p_free
+        }
+
         return false;
     }
     else
@@ -907,8 +918,13 @@ bool VasquezGomezAreaFactor::includeMeasurement( octomap::OcTreeKey& _to_measure
     {
         ++occplaneCount_;
         rayIsAlreadyRegistered_ = true;
+        previousVoxelFree_ = false;
         //ROS_ERROR_STREAM("Got an occplane voxel!");
         return true;
+    }
+    else
+    {
+        noKnownVoxelSoFar_=false;
     }
     
     if( occ >= unknown_upper_bound_ ) // voxel is occupied
@@ -1046,12 +1062,12 @@ double DepthHypothesis::getOccupancy( octomap::OcTreeKey& _to_measure )
 double OccupiedPercentage::getInformation()
 {
     
-    double voxelSum = occupiedCount_ + occplaneCount_;// + unobservedCount_;
+    double voxelSum = occupiedCount_;// + occplaneCount_;// + unobservedCount_;
 
-    if( voxelSum==0 )
-        return 0;
+   // if( voxelSum<30 ) // 40 is arbitrary - just to ensure that the percentage is meaningful
+     //   return 0;
 
-    return occupiedCount_ / voxelSum;
+    return occupiedCount_ ;/// voxelSum;
 }
 
 bool UnknownObjectVolumeIG::isUnknownVoxel( double _p_occ )

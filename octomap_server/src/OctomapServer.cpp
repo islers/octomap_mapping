@@ -613,7 +613,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       }
       
       // update occluded voxels distance information
-      point3d new_end = sensorOrigin + currRay.normalized() * m_maxRange;
+      point3d new_end = point + currRay.normalized() * 0.1;
       if (m_octree->computeRayKeys(point, new_end, m_keyRay))
       { // directly process here since otherwise the distance information would have to be transferred.
           KeyRay::iterator occ = m_keyRay.begin(); // first point is the occupied one - skip it!
@@ -632,6 +632,10 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
                     {
                         //ROS_INFO_STREAM("Update occluded voxel without measurement");
                         voxel->updateOccDist( i );
+                    }
+                    else
+                    {
+                        break; // don't trace through known occupied/empty voxels
                     }
                 }
                 else
@@ -917,6 +921,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 	  color.r = 200/256;
 	  color.g = 70/256;
 	  color.b = 20/256;
+          color.a = 1;
 	  nodesOccluded.markers[idx].points.push_back(cubeCenter);
 	  nodesOccluded.markers[idx].colors.push_back(color);
 	}
@@ -925,6 +930,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 	  color.r = 50/256;
 	  color.g = 20/256;
 	  color.b = 230/256;
+          color.a = 1;
 	  nodes20.markers[idx].points.push_back(cubeCenter);
 	  nodes20.markers[idx].colors.push_back(color);
 	}
@@ -933,6 +939,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 	  color.r = 110/256;
 	  color.g = 20/256;
 	  color.b = 230/256;
+          color.a = 1;
 	  nodes40.markers[idx].points.push_back(cubeCenter);
 	  nodes40.markers[idx].colors.push_back(color);
 	}
@@ -941,6 +948,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 	  color.r = 170/256;
 	  color.g = 20/256;
 	  color.b = 230/256;
+          color.a = 1;
 	  nodes60.markers[idx].points.push_back(cubeCenter);
 	  nodes60.markers[idx].colors.push_back(color);
 	}
@@ -949,6 +957,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
 	  color.r = 230/256;
 	  color.g = 20/256;
 	  color.b = 230/256;
+          color.a = 1;
 	  nodes80.markers[idx].points.push_back(cubeCenter);
 	  nodes80.markers[idx].colors.push_back(color);
 	}
@@ -1062,7 +1071,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
       nodesOccluded.markers[i].scale.x = size;
       nodesOccluded.markers[i].scale.y = size;
       nodesOccluded.markers[i].scale.z = size;
-      nodesOccluded.markers[i].color = m_color;
+      //nodesOccluded.markers[i].color = m_color;
 
 
       if (nodesOccluded.markers[i].points.size() > 0)
@@ -1083,7 +1092,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
       nodes20.markers[i].scale.x = size;
       nodes20.markers[i].scale.y = size;
       nodes20.markers[i].scale.z = size;
-      nodes20.markers[i].color = m_color;
+      //nodes20.markers[i].color = m_color;
 
 
       if (nodes20.markers[i].points.size() > 0)
@@ -1104,7 +1113,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
       nodes40.markers[i].scale.x = size;
       nodes40.markers[i].scale.y = size;
       nodes40.markers[i].scale.z = size;
-      nodes40.markers[i].color = m_color;
+      //nodes40.markers[i].color = m_color;
 
 
       if (nodes40.markers[i].points.size() > 0)
@@ -1126,7 +1135,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
       nodes60.markers[i].scale.x = size;
       nodes60.markers[i].scale.y = size;
       nodes60.markers[i].scale.z = size;
-      nodes60.markers[i].color = m_color;
+      //nodes60.markers[i].color = m_color;
 
 
       if (nodes60.markers[i].points.size() > 0)
@@ -1148,7 +1157,7 @@ void OctomapServer::publishAll(const ros::Time& rostime){
       nodes80.markers[i].scale.x = size;
       nodes80.markers[i].scale.y = size;
       nodes80.markers[i].scale.z = size;
-      nodes80.markers[i].color = m_color;
+      //nodes80.markers[i].color = m_color;
 
 
       if (nodes80.markers[i].points.size() > 0)
