@@ -154,12 +154,12 @@ public:
   /**
    * includes a measurement for a point on a ray
    */
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure )=0;
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel )=0;
   
   /**
    * includes a measurement for an endpoint
    */
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )=0;
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel )=0;
   
   /**
    * informs the metric that a complete ray was cast through empty space without

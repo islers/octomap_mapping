@@ -613,7 +613,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       }
       
       // update occluded voxels distance information
-      point3d new_end = point + currRay.normalized() * 0.1;
+      point3d new_end = point + currRay.normalized() * 0.3;
       if (m_octree->computeRayKeys(point, new_end, m_keyRay))
       { // directly process here since otherwise the distance information would have to be transferred.
           KeyRay::iterator occ = m_keyRay.begin(); // first point is the occupied one - skip it!

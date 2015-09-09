@@ -23,7 +23,7 @@ public:
   /**
    * returns the occupancy likelihood for the voxel
    */
-  virtual double getOccupancy( octomap::OcTreeKey& _to_measure );
+  virtual double getOccupancy( octomap::DROcTreeNode* traversedVoxel );
   
   /**
    * calculates the information gain for the voxel (entropy)
@@ -32,8 +32,8 @@ public:
   
   virtual double getInformation();
   virtual void makeReadyForNewRay();
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   virtual void informAboutVoidRay();
   
   static double unknown_p_prior_;
@@ -44,7 +44,7 @@ public:
 private:
   double ig_;
   
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 class OccupancyAwareTotalIG: public IgnorantTotalIG
@@ -58,15 +58,15 @@ public:
   
   virtual double getInformation();
   virtual void makeReadyForNewRay();
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   virtual void informAboutVoidRay();
   
 private:
   double ig_;
   double p_vis_;
   
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -84,12 +84,12 @@ public:
   /**
    * returns the occupancy likelihodd for the voxel
    */
-  virtual double getOccupancy( octomap::OcTreeKey& _to_measure );
+  virtual double getOccupancy( octomap::DROcTreeNode* traversedVoxel );
   
   double getInformation();
   void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   virtual unsigned int voxelCount(){return 1;} // since it's a simple voxel count, averaging destroy all information...
 private:
   unsigned int frontier_voxel_count_;
@@ -108,8 +108,8 @@ public:
   
   virtual double getInformation();
   virtual void makeReadyForNewRay();
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   virtual void informAboutVoidRay(){}; // void rays not considered in this ig
   
   /**
@@ -135,7 +135,7 @@ private:
   bool already_counts_;
   unsigned int voxels_on_current_ray_;
   
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -153,13 +153,13 @@ public:
     }
     virtual double getInformation();
     virtual void makeReadyForNewRay();
-    virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-    virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+    virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+    virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
     virtual unsigned int voxelCount(){ return 1; } // averaging already included!
     virtual void informAboutVoidRay(){} //void rays not considered
     
 protected:
-    double includeMeasurement( octomap::OcTreeKey& _to_measure ); 
+    double includeMeasurement( octomap::DROcTreeNode* traversedVoxel ); 
     double totalEntropy_;
     unsigned int voxelCount_;
     double totalIG_;
@@ -181,8 +181,8 @@ public:
     static unsigned int occplanePercCount;
     virtual double getInformation();
     virtual void makeReadyForNewRay();
-    virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-    virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+    virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+    virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
     virtual void informAboutVoidRay();
     virtual unsigned int voxelCount(){ return 1; } //count based ig...
 protected:
@@ -197,7 +197,7 @@ protected:
     double areaFactor( double x, int setId );
     
     // returns true if the ray was registered
-    bool includeMeasurement( octomap::OcTreeKey& _to_measure );
+    bool includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
     
     // Computes coefficients for the area factor function with a given alpha
     void setCoefficients( double alpha, double& a_f1, double& b_f1, double& a_f2, double& b_f2, double& c_f2, double& d_f2 );
@@ -238,8 +238,8 @@ public:
   
   virtual double getInformation();
   virtual void makeReadyForNewRay();
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   virtual void informAboutVoidRay();
   
 private:
@@ -250,14 +250,14 @@ private:
   double p_vis_;
   bool passesOccluded_;
   
-  double getOccupancy( octomap::OcTreeKey& _to_measure );
+  double getOccupancy( octomap::DROcTreeNode* traversedVoxel );
   
   /** returns the likelihood of an occluded voxel to be part of the object,
    * based on the hypothesis
    */
   double getObjectLikelihood( double voxelDist );
   
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -286,14 +286,14 @@ public:
   }
   double getInformation();
   void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   bool isUnknown( double _p );
   virtual unsigned int voxelCount(){ return 1; } // since not voxel based...
 private:
   unsigned int front_voxel_count_;
   bool previous_voxel_unknown_;
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 class UnknownObjectVolumeIG: public IgnorantTotalIG
@@ -309,8 +309,8 @@ public:
   
   virtual double getInformation();
   virtual void makeReadyForNewRay();
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   void informAboutVoidRay(){} // not considered
     
 private:
@@ -320,7 +320,7 @@ private:
   bool previous_voxel_unknown_;
   unsigned int current_ray_voxel_count_;
   
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -336,8 +336,8 @@ public:
   }
   double getInformation();
   void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
 private:
   unsigned int unknown_voxel_count;
 };
@@ -355,8 +355,8 @@ public:
   }
   double getInformation();
   void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
   void informAboutVoidRay(){}
   
 private:
@@ -379,12 +379,12 @@ public:
   }
   virtual double getInformation();
   virtual void makeReadyForNewRay();
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
 protected:
   double certainty_sum_;
   unsigned int nr_of_measurements_;
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -397,7 +397,7 @@ public:
   {
     return "AverageEndPointUncertainty";
   }
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -414,12 +414,12 @@ public:
   }
   double getInformation();
   void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
 private:
   unsigned int volume_count_;
   unsigned int running_count_;
-  void includeMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeMeasurement( octomap::DROcTreeNode* traversedVoxel );
 };
 
 /** information metric for rays:
@@ -435,8 +435,8 @@ public:
   }
   double getInformation();
   void makeReadyForNewRay();
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure );
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure );
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel );
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel );
 private:
   double sum_;
 };
@@ -462,8 +462,8 @@ public:
   void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::DROcTreeNode>* _octree );
   double getInformation();
   void makeReadyForNewRay(){};
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
 private:
   double sum_;
 };
@@ -481,8 +481,8 @@ public:
   void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::DROcTreeNode>* _octree );
   double getInformation();
   void makeReadyForNewRay(){};
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
   
   void reset();
   
@@ -524,8 +524,8 @@ public:
   void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::DROcTreeNode>* _octree );
   double getInformation();
   void makeReadyForNewRay(){};
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
   
 private:
   unsigned int sum_;
@@ -548,8 +548,8 @@ public:
   };
   virtual double getInformation(){ return unknownCount_; };
   virtual void makeReadyForNewRay(){};
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
 protected:
     unsigned int sum_;
 };
@@ -571,8 +571,8 @@ public:
   };
   virtual double getInformation(){ return occludedCount_; };
   virtual void makeReadyForNewRay(){};
-  virtual void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  virtual void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  virtual void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  virtual void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
 protected:
     unsigned int sum_;
 };
@@ -590,8 +590,8 @@ public:
   void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::DROcTreeNode>* _octree );
   double getInformation();
   void makeReadyForNewRay(){};
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
 private:
   double sum_;
 };
@@ -609,8 +609,8 @@ public:
   void calculateOnTree( octomap::OccupancyOcTreeBase<octomap::DROcTreeNode>* _octree );
   double getInformation();
   void makeReadyForNewRay(){};
-  void includeRayMeasurement( octomap::OcTreeKey& _to_measure ){};
-  void includeEndPointMeasurement( octomap::OcTreeKey& _to_measure ){};
+  void includeRayMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
+  void includeEndPointMeasurement( octomap::DROcTreeNode* traversedVoxel ){};
 private:
   unsigned int sum_;
 };

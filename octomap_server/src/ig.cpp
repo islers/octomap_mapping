@@ -13,16 +13,16 @@ void NrOfUnknownVoxels::makeReadyForNewRay()
   // void
 }
 
-void NrOfUnknownVoxels::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void NrOfUnknownVoxels::includeRayMeasurement( octomap::DROcTreeNode* added )
 {
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   if( added==NULL )
     ++unknown_voxel_count;
   else if( !added->hasMeasurement() )
       ++unknown_voxel_count;
 }
 
-void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void NrOfUnknownVoxels::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
   // void - an end point must be occupied and thus can't be unknown
 }
@@ -37,16 +37,16 @@ void ExpectedNewSurfaceVoxels::makeReadyForNewRay()
   rayAlreadyRegistered_ = false;
 }
 
-void ExpectedNewSurfaceVoxels::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void ExpectedNewSurfaceVoxels::includeRayMeasurement( octomap::DROcTreeNode* added )
 {
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   if( added==NULL )
     ++surfaceVoxels_;
   else if( !added->hasMeasurement() )
       ++surfaceVoxels_;
 }
 
-void ExpectedNewSurfaceVoxels::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void ExpectedNewSurfaceVoxels::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
   // void - an end point must be occupied and thus can't be unknown
 }
@@ -64,20 +64,20 @@ void AverageUncertainty::makeReadyForNewRay()
   // has no effect
 }
 
-void AverageUncertainty::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void AverageUncertainty::includeRayMeasurement( octomap::DROcTreeNode* _to_measure )
 {
   includeMeasurement(_to_measure);
 }
 
-void AverageUncertainty::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void AverageUncertainty::includeEndPointMeasurement( octomap::DROcTreeNode* _to_measure )
 {
   includeMeasurement(_to_measure);
 }
 
-void AverageUncertainty::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void AverageUncertainty::includeMeasurement( octomap::DROcTreeNode* added )
 {
   double occupany_likelihood;
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   if( added==NULL )
   {
     occupany_likelihood=0.5; // default for unknown
@@ -94,7 +94,7 @@ void AverageUncertainty::includeMeasurement( octomap::OcTreeKey& _to_measure )
   ++nr_of_measurements_;
 }
 
-void AverageEndPointUncertainty::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void AverageEndPointUncertainty::includeRayMeasurement( octomap::DROcTreeNode* added )
 {
   // void
 }
@@ -109,12 +109,12 @@ void UnknownObjectSideFrontier::makeReadyForNewRay()
   previous_voxel_unknown_ = false;
 }
 
-void UnknownObjectSideFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectSideFrontier::includeRayMeasurement( octomap::DROcTreeNode* added )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(added);
 }
 
-void UnknownObjectSideFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectSideFrontier::includeEndPointMeasurement( octomap::DROcTreeNode* _to_measure )
 {
   includeMeasurement(_to_measure);
 }
@@ -129,9 +129,9 @@ bool UnknownObjectSideFrontier::isUnknown( double _p )
     return false;
 }
 
-void UnknownObjectSideFrontier::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectSideFrontier::includeMeasurement( octomap::DROcTreeNode* added )
 {
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   if( added==NULL )
   {
     previous_voxel_unknown_=true;
@@ -166,19 +166,19 @@ void UnknownObjectVolumeFrontier::makeReadyForNewRay()
   running_count_ = 0;
 }
 
-void UnknownObjectVolumeFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectVolumeFrontier::includeRayMeasurement( octomap::DROcTreeNode* added )
+{
+  includeMeasurement(added);
+}
+
+void UnknownObjectVolumeFrontier::includeEndPointMeasurement( octomap::DROcTreeNode* _to_measure )
 {
   includeMeasurement(_to_measure);
 }
 
-void UnknownObjectVolumeFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectVolumeFrontier::includeMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
-}
-
-void UnknownObjectVolumeFrontier::includeMeasurement( octomap::OcTreeKey& _to_measure )
-{
-  octomap::DROcTreeNode* to_measure = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* to_measure = octree_->search(_to_measure);
   if( to_measure==NULL )
   {
     ++running_count_;
@@ -197,10 +197,10 @@ void UnknownObjectVolumeFrontier::includeMeasurement( octomap::OcTreeKey& _to_me
   }
 }
 
-double ClassicFrontier::getOccupancy( octomap::OcTreeKey& _to_measure )
+double ClassicFrontier::getOccupancy( octomap::DROcTreeNode* added )
 {
   double p_occ;
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   if( added==NULL )
   {
     p_occ=IgnorantTotalIG::unknown_p_prior_; // default for unknown
@@ -227,13 +227,13 @@ void ClassicFrontier::makeReadyForNewRay()
   already_counts_=false;
 }
 
-void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void ClassicFrontier::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
   if( already_counts_ ) 
     return;
   
-  octomap::DROcTreeNode* to_measure = octree_->search(_to_measure);
-  double occ = getOccupancy(_to_measure);
+  //octomap::DROcTreeNode* to_measure = octree_->search(_to_measure);
+  double occ = getOccupancy(to_measure);
   
   if( to_measure==NULL || (occ>IgnorantTotalIG::unknown_lower_bound_ && occ<IgnorantTotalIG::unknown_upper_bound_) )
   {
@@ -257,7 +257,7 @@ void ClassicFrontier::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
   }
 }
 
-void ClassicFrontier::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void ClassicFrontier::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
   // void since end points are occupied by definition
 }
@@ -272,14 +272,14 @@ void EndNodeOccupancySum::makeReadyForNewRay()
   // void
 }
 
-void EndNodeOccupancySum::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void EndNodeOccupancySum::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
   // void
 }
 
-void EndNodeOccupancySum::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void EndNodeOccupancySum::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  octomap::DROcTreeNode* to_measure = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* to_measure = octree_->search(_to_measure);
   if( to_measure!=NULL )
     sum_+=to_measure->getOccupancy(); // end points are always occupied
   /*if( to_measure==NULL )
@@ -507,10 +507,10 @@ double IgnorantTotalIG::unknown_lower_bound_ = 0.2; //0.15
 double IgnorantTotalIG::unknown_upper_bound_ = 0.8; //0.8
 unsigned int IgnorantTotalIG::voxels_in_void_ray_ = 1.0/0.01; // approximated with max ray range/voxel size -> overestimated number of voxels on ray - therefore underestimates the average ig
 
-double IgnorantTotalIG::getOccupancy( octomap::OcTreeKey& _to_measure )
+double IgnorantTotalIG::getOccupancy( octomap::DROcTreeNode* added )
 {
   double p_occ;
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   if( added==NULL )
   {
     p_occ=unknown_p_prior_; // default for unknown
@@ -547,21 +547,21 @@ void IgnorantTotalIG::makeReadyForNewRay()
   //ig_=0;
 }
 
-void IgnorantTotalIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void IgnorantTotalIG::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
   ++traversedVoxelCount_;
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void IgnorantTotalIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void IgnorantTotalIG::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
   ++traversedVoxelCount_;
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void IgnorantTotalIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void IgnorantTotalIG::includeMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  double p_occ = getOccupancy(_to_measure);
+  double p_occ = getOccupancy(to_measure);
   double vox_ig = calcIG(p_occ);
   ig_ += vox_ig;
 }
@@ -583,20 +583,20 @@ void OccupancyAwareTotalIG::makeReadyForNewRay()
   p_vis_=1;
 }
 
-void OccupancyAwareTotalIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void OccupancyAwareTotalIG::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void OccupancyAwareTotalIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void OccupancyAwareTotalIG::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void OccupancyAwareTotalIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void OccupancyAwareTotalIG::includeMeasurement( octomap::DROcTreeNode* to_measure )
 {
   traversedVoxelCount_+=1;
-  double p_occ = getOccupancy(_to_measure);
+  double p_occ = getOccupancy(to_measure);
   double vox_ig = calcIG(p_occ);
   ig_ += p_vis_*vox_ig;
   p_vis_*=p_occ;
@@ -624,14 +624,14 @@ void TotalUnknownIG::makeReadyForNewRay()
   voxels_on_current_ray_=0;
 }
 
-void TotalUnknownIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void TotalUnknownIG::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void TotalUnknownIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void TotalUnknownIG::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  double p_occ = getOccupancy(_to_measure);
+  double p_occ = getOccupancy(to_measure);
   double vox_ig = calcIG(p_occ);
   
   if( isUnknown(p_occ) )
@@ -673,9 +673,9 @@ bool TotalUnknownIG::isUnknown( double _p_occ )
     return false;
 }
 
-void TotalUnknownIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void TotalUnknownIG::includeMeasurement( octomap::DROcTreeNode* added )
 {
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   double p_occ;
   if( added==NULL )
   {
@@ -720,16 +720,16 @@ void AverageEntropy::makeReadyForNewRay()
     voxelCount_=0;
 }
 
-void AverageEntropy::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void AverageEntropy::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
-    includeMeasurement(_to_measure);
+    includeMeasurement(to_measure);
 }
 
 // only include rays that hit an occupied!
-void AverageEntropy::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void AverageEntropy::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
     traversedVoxelCount_+=1;
-    double occ = getOccupancy(_to_measure);
+    double occ = getOccupancy(to_measure);
     double h = calcIG(occ);
     totalEntropy_ += h;
     ++voxelCount_;
@@ -741,10 +741,10 @@ void AverageEntropy::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure
     }
 }
 
-double AverageEntropy::includeMeasurement( octomap::OcTreeKey& _to_measure )
+double AverageEntropy::includeMeasurement( octomap::DROcTreeNode* to_measure )
 {
     traversedVoxelCount_+=1;
-    double occ = getOccupancy(_to_measure);
+    double occ = getOccupancy(to_measure);
     double h = calcIG(occ);
     totalEntropy_ += h;
     ++voxelCount_;
@@ -815,14 +815,14 @@ void VasquezGomezAreaFactor::makeReadyForNewRay()
     noKnownVoxelSoFar_ = true;
 }
 
-void VasquezGomezAreaFactor::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void VasquezGomezAreaFactor::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
-    includeMeasurement(_to_measure);
+    includeMeasurement(to_measure);
 }
 
-void VasquezGomezAreaFactor::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void VasquezGomezAreaFactor::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
-    if( !includeMeasurement(_to_measure) ) // if ray wasn't registered to the last voxel on it, it's an unmarked one
+    if( !includeMeasurement(to_measure) ) // if ray wasn't registered to the last voxel on it, it's an unmarked one
     {
         unobservedCount_+=1;
     }
@@ -886,14 +886,14 @@ double VasquezGomezAreaFactor::areaFactor( double x, int setId )
 }
 
 
-bool VasquezGomezAreaFactor::includeMeasurement( octomap::OcTreeKey& _to_measure )
+bool VasquezGomezAreaFactor::includeMeasurement( octomap::DROcTreeNode* added )
 {
     if(rayIsAlreadyRegistered_) // register each ray only once
     {
         return true;
     }
     
-    octomap::DROcTreeNode* added = octree_->search(_to_measure);
+    //octomap::DROcTreeNode* added = octree_->search(_to_measure);
     double occ;
     if( added==NULL )
     {
@@ -974,20 +974,20 @@ void DepthHypothesis::makeReadyForNewRay()
 {
 }
 
-void DepthHypothesis::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void DepthHypothesis::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void DepthHypothesis::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void DepthHypothesis::includeEndPointMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void DepthHypothesis::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void DepthHypothesis::includeMeasurement( octomap::DROcTreeNode* added )
 {
   traversedVoxelCount_+=1;
-    octomap::DROcTreeNode* added = octree_->search(_to_measure);
+    //octomap::DROcTreeNode* added = octree_->search(_to_measure);
     
     if(added!=NULL)
     {
@@ -1029,10 +1029,10 @@ double DepthHypothesis::getObjectLikelihood( double voxelDist )
     else
         return 0;
 }
-double DepthHypothesis::getOccupancy( octomap::OcTreeKey& _to_measure )
+double DepthHypothesis::getOccupancy( octomap::DROcTreeNode* added )
 {
   double p_occ;
-  octomap::DROcTreeNode* added = octree_->search(_to_measure);
+  //octomap::DROcTreeNode* added = octree_->search(_to_measure);
   
   if( added==NULL )
   {
@@ -1062,12 +1062,12 @@ double DepthHypothesis::getOccupancy( octomap::OcTreeKey& _to_measure )
 double OccupiedPercentage::getInformation()
 {
     
-    double voxelSum = occupiedCount_;// + occplaneCount_;// + unobservedCount_;
+    double voxelSum = occupiedCount_ + occplaneCount_;// + unobservedCount_;
 
-   // if( voxelSum<30 ) // 40 is arbitrary - just to ensure that the percentage is meaningful
-     //   return 0;
+    if( voxelSum<30 ) // 40 is arbitrary - just to ensure that the percentage is meaningful
+        return 0;
 
-    return occupiedCount_ ;/// voxelSum;
+    return occupiedCount_ / voxelSum;
 }
 
 bool UnknownObjectVolumeIG::isUnknownVoxel( double _p_occ )
@@ -1089,16 +1089,16 @@ void UnknownObjectVolumeIG::makeReadyForNewRay()
   current_ray_voxel_count_=0;
 }
 
-void UnknownObjectVolumeIG::includeRayMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectVolumeIG::includeRayMeasurement( octomap::DROcTreeNode* to_measure )
 {
-  includeMeasurement(_to_measure);
+  includeMeasurement(to_measure);
 }
 
-void UnknownObjectVolumeIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectVolumeIG::includeEndPointMeasurement( octomap::DROcTreeNode* added )
 {  
   if( previous_voxel_unknown_ )
   {
-    octomap::DROcTreeNode* added = octree_->search(_to_measure);
+    //octomap::DROcTreeNode* added = octree_->search(_to_measure);
     
     if( added==NULL )
     {
@@ -1109,7 +1109,7 @@ void UnknownObjectVolumeIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_
         return;
     }
     
-    double p_occ = getOccupancy(_to_measure);
+    double p_occ = getOccupancy(added);
     double vox_ig = calcIG(p_occ);
     current_ray_ig_ += p_vis_*vox_ig;
     current_ray_voxel_count_+=1;
@@ -1119,7 +1119,7 @@ void UnknownObjectVolumeIG::includeEndPointMeasurement( octomap::OcTreeKey& _to_
   }
 }
 
-void UnknownObjectVolumeIG::includeMeasurement( octomap::OcTreeKey& _to_measure )
+void UnknownObjectVolumeIG::includeMeasurement( octomap::DROcTreeNode* _to_measure )
 {
   double p_occ = getOccupancy(_to_measure);
   if( isUnknownVoxel(p_occ) )

@@ -509,9 +509,24 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
     {
       //if( count%_ray_step_size==0 )
       //{
+        
+        octomap::point3d coord = _octree->keyToCoord(*it);
+        
+        octomap::DROcTreeNode* traversedVoxel = _octree->search(*it); // speedup!
+        
+        if( coord.z()<0 ) // assuming every ray starts with z>0 all following voxels will be less than zero too... - include as end point!
+        {
+            for( unsigned int i=0; i<_metrics.size();++i )
+            {
+                _metrics[i]->includeEndPointMeasurement( traversedVoxel );
+            }
+            break; // early stop
+        }
+        
+        
 	for( unsigned int i=0; i<_metrics.size();++i )
 	{
-	  _metrics[i]->includeRayMeasurement( *it );
+	  _metrics[i]->includeRayMeasurement( traversedVoxel );
 	}
       //}
     }
@@ -522,9 +537,11 @@ void OctomapDRServer::retrieveInformationForRay( octomap::OccupancyOcTreeBase<oc
     octomap::OcTreeKey end_key;
     if( _octree->coordToKeyChecked(end_point, end_key) )
     {
+        octomap::DROcTreeNode* traversedVoxel = _octree->search(end_key); // speedup!
+        
         for( unsigned int i=0; i<_metrics.size();++i )
         {
-        _metrics[i]->includeEndPointMeasurement( end_key );
+        _metrics[i]->includeEndPointMeasurement( traversedVoxel );
         }
     }
   }
