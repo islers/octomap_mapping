@@ -285,6 +285,8 @@ void OctomapDRServer::informationRetrieval( InformationRetrievalStructure& _info
 
 void OctomapDRServer::retrieveInformationForView( InformationRetrievalStructure& _info )
 {
+  // check if occlusion shall be calculated or not
+  
   // build vector with all ray metrics
   std::vector<boost::shared_ptr<InformationMetric> > metrics;
 

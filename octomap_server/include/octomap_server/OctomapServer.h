@@ -253,6 +253,8 @@ protected:
   double m_minSizeX;
   double m_minSizeY;
   bool m_filterSpeckles;
+  
+  bool calculate_occlusion_;
 
   bool m_filterGroundPlane;
   double m_groundFilterDistance;

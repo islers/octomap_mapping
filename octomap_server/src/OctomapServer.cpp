@@ -71,11 +71,14 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_update_volume_max(std::numeric_limits<double>::max(),std::numeric_limits<double>::max(),std::numeric_limits<double>::max()),
   m_use_color(true),
   m_tfListener(ros::Duration(180)),
-  m_use_icp(false)
+  m_use_icp(false),
+  calculate_occlusion_(true)
 {
     cloud_ = boost::shared_ptr<PCLPointCloud>( new PCLPointCloud );
     
   ros::NodeHandle private_nh(private_nh_);
+  ros::param::get("/octomap_dense_reconstruction/calculate_occlusion", calculate_occlusion_);
+  
   private_nh.param("frame_id", m_worldFrameId, m_worldFrameId);
   private_nh.param("base_frame_id", m_baseFrameId, m_baseFrameId);
   private_nh.param("height_map", m_useHeightMap, m_useHeightMap);
@@ -298,6 +301,14 @@ bool OctomapServer::openFile(const std::string& filename){
 }
 
 void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
+    
+  // recheck occlusion parameter
+  bool occlusion_t = calculate_occlusion_;
+  ros::NodeHandle nodeHandle("~");
+  ros::param::get("/octomap_dense_reconstruction/calculate_occlusion", calculate_occlusion_);
+  if( occlusion_t!=calculate_occlusion_ )
+      ROS_INFO_STREAM( "Changed occlusion calculation settings: " << (calculate_occlusion_?"Occlusion calculated.":"Occlusion not calculated.") );
+    
   ros::WallTime startTime = ros::WallTime::now();
   ROS_INFO("Received new cloud input.");
   //
@@ -613,42 +624,45 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const octomath::
       }
       
       // update occluded voxels distance information
-      point3d new_end = point + currRay.normalized() * 0.3;
-      if (m_octree->computeRayKeys(point, new_end, m_keyRay))
-      { // directly process here since otherwise the distance information would have to be transferred.
-          KeyRay::iterator occ = m_keyRay.begin(); // first point is the occupied one - skip it!
-          KeyRay::iterator end = m_keyRay.end();
-          occupiedCount+=m_keyRay.size();
-          if(occ!=end)
-          {
-            for( unsigned int i=0; occ!=end; ++i, ++occ )
-            {
-                //ROS_INFO_STREAM("occupied update: "<<i<<".");
-                DROcTreeNode* voxel = m_octree->search(*occ);
-                                
-                if( voxel!=NULL )
+      if(calculate_occlusion_)
+      {
+            point3d new_end = point + currRay.normalized() * 0.3;
+            if (m_octree->computeRayKeys(point, new_end, m_keyRay))
+            { // directly process here since otherwise the distance information would have to be transferred.
+                KeyRay::iterator occ = m_keyRay.begin(); // first point is the occupied one - skip it!
+                KeyRay::iterator end = m_keyRay.end();
+                occupiedCount+=m_keyRay.size();
+                if(occ!=end)
                 {
-                    if( !voxel->hasMeasurement() )
+                    for( unsigned int i=0; occ!=end; ++i, ++occ )
                     {
-                        //ROS_INFO_STREAM("Update occluded voxel without measurement");
-                        voxel->updateOccDist( i );
+                        //ROS_INFO_STREAM("occupied update: "<<i<<".");
+                        DROcTreeNode* voxel = m_octree->search(*occ);
+                                        
+                        if( voxel!=NULL )
+                        {
+                            if( !voxel->hasMeasurement() )
+                            {
+                                //ROS_INFO_STREAM("Update occluded voxel without measurement");
+                                voxel->updateOccDist( i );
+                            }
+                            else
+                            {
+                                break; // don't trace through known occupied/empty voxels
+                            }
+                        }
+                        else
+                        {
+                                //ROS_INFO_STREAM("Create new occluded voxel");
+                            voxel = m_octree->updateNode(*occ, false, 0.1); //random distance
+                            //voxel = m_octree->updateNode(*occ,(float)0,false); // leads to crashes, don't know why (segfault)
+                            // the occupancy probability will be ignored during an actual update with the following call:
+                            voxel->updateHasMeasurement(false);
+                            voxel->updateOccDist( i );
+                        }
                     }
-                    else
-                    {
-                        break; // don't trace through known occupied/empty voxels
-                    }
-                }
-                else
-                {
-                        //ROS_INFO_STREAM("Create new occluded voxel");
-                    voxel = m_octree->updateNode(*occ, false, 0.1); //random distance
-                    //voxel = m_octree->updateNode(*occ,(float)0,false); // leads to crashes, don't know why (segfault)
-                    // the occupancy probability will be ignored during an actual update with the following call:
-                    voxel->updateHasMeasurement(false);
-                    voxel->updateOccDist( i );
                 }
             }
-          }
       }
     }
     else
