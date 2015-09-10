@@ -69,7 +69,9 @@ int main(int argc, char** argv){
 
 
   try{
-    ros::spin();
+    ros::MultiThreadedSpinner spinner;
+    spinner.spin();
+    //ros::spin();
   }catch(std::runtime_error& e){
     ROS_ERROR("octomap_server exception: %s", e.what());
     return -1;
